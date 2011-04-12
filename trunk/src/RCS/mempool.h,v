@@ -1,0 +1,224 @@
+head	1.5;
+access;
+symbols;
+locks
+	d96041:1.5; strict;
+comment	@ * @;
+
+
+1.5
+date	2010.11.14.12.54.27;	author d96041;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	2010.10.27.13.17.39;	author d96041;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	2010.08.28.08.43.24;	author d96041;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2010.08.23.13.08.19;	author d96041;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2010.06.24.09.04.14;	author r97124;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.5
+log
+@*** empty log message ***
+@
+text
+@#ifndef MEMPOOL_H
+#define MEMPOOL_H
+
+
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <pthread.h>
+#include "dqueue.h"
+
+
+
+struct Mempool
+{
+	char poolName[64];
+	int batchNumOfBlock;
+	int blockSize;
+
+	// to the free block list  -- with heap data structure
+	Dqueue *dqueue;
+	int count; 
+
+	pthread_mutex_t mutex;
+};
+
+typedef struct Mempool Mempool;
+
+
+
+struct MempoolSet
+{
+	int minBlockSize;
+	int maxBlockSize;
+	int hugeBlockSize;
+	int numOfPool;
+	int lgMinBlockSize;
+
+	Mempool **poolSet;
+	Mempool *huge; // for the very big blockSize
+};
+
+typedef struct MempoolSet MempoolSet;
+
+
+
+// =====================================================================
+MempoolSet * _pool;
+MempoolSet ** _poolList;
+int _poolListSize;
+
+void createMempoolSet(const int minBlockSize,const int numOfMempool,const int hugeBlockSize,const int *const numOfBlockList,const int poolListSize);
+void freeMempoolSet(void);
+
+
+void clearPidMempoolSet(const int pid);
+
+void *getMempoolSet(const int blockSize);
+void *getPidMempoolSet(const int blockSize,const int pid);
+
+void retMempoolSet(void *data, const int blockSize);
+void retPidMempoolSet(void *data, const int blockSize,const int pid);
+
+void dumpMempoolSet(FILE *fp);
+void usageMempoolSet(FILE *fp);
+
+
+#else
+
+extern MempoolSet *_pool;
+extern MempoolSet ** _poolList;
+extern int _poolListSize;
+
+#endif
+@
+
+
+1.4
+log
+@ok version ~ new heap structure
+@
+text
+@d4 1
+d10 1
+a13 11
+// the data structure that is used in the Mempool
+/*
+struct Memblock
+{
+	void *data;
+};
+
+typedef struct Memblock Memblock;
+*/
+
+
+d17 1
+a17 1
+	int maxNumOfBlock;
+d21 2
+a22 3
+	int heapSize;
+	int maxHeapSize;
+	void **freeList; 
+d55 3
+@
+
+
+1.3
+log
+@ok version ~ new creating api
+@
+text
+@d13 1
+a16 1
+	struct Memblock *next;
+d20 1
+a20 1
+
+a27 1
+	int numOfUnused;
+d29 4
+a32 4
+	// to store the top of free block list 
+	Memblock *topFreeList; 
+	// to store the top of used block list 
+	Memblock *topUsedList; 
+d62 1
+a62 2
+void createMempoolSet(const int minBlockSize,const int numOfMempool,const int hugeBlockSize,const int numOfBlock,const int poolListSize);
+void createMempoolSetNew(const int minBlockSize,const int numOfMempool,const int hugeBlockSize,const int *const numOfBlockList,const int poolListSize);
+d64 1
+d67 1
+d70 1
+@
+
+
+1.2
+log
+@ok version ~ parallel version for different thread
+@
+text
+@a39 13
+/*
+
+// create a memory pool
+Mempool *createMempool(const char *poolName,const int blockSize,const int numOfBlock);
+// free a memory pool
+void freeMempool(Mempool *ptr);
+// get a memory block from the allocated memory pool
+void *getMempool(Mempool *pool);
+// return a memory block to the allocated memory pool
+void retMempool(Mempool *pool, void *data);
+// dump out the debug information
+void dumpMempool(FILE *fp,const Mempool *pool);
+*/
+a55 7
+/*
+MempoolSet *createMempoolSet(const int minBlockSize,const int numOfMempool,const int hugeBlockSize,const int numOfBlock);
+void freeMempoolSet(MempoolSet *ptr);
+void *getMempoolSet(MempoolSet *ptr,const int blockSize);
+void retMempoolSet(MempoolSet *ptr,void *data, const int blockSize);
+void dumpMempoolSet(FILE *fp, const MempoolSet *set);
+*/
+d64 1
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d80 2
+d83 1
+a83 1
+void createMempoolSet(const int minBlockSize,const int numOfMempool,const int hugeBlockSize,const int numOfBlock);
+d86 1
+d88 1
+d96 2
+@

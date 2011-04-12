@@ -1,0 +1,287 @@
+head	1.7;
+access;
+symbols;
+locks
+	d96041:1.7; strict;
+comment	@ * @;
+
+
+1.7
+date	2010.11.14.12.54.27;	author d96041;	state Exp;
+branches;
+next	1.6;
+
+1.6
+date	2010.07.13.13.28.24;	author d96041;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	2010.07.08.12.43.21;	author d96041;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	2010.06.29.13.35.27;	author d96041;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	2010.06.28.10.03.22;	author r97124;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2010.06.25.07.22.51;	author r97124;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2010.06.24.09.04.14;	author r97124;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.7
+log
+@*** empty log message ***
+@
+text
+@#ifndef SPARSEDOUBLEMATRIX_H
+#define SPARSEDOUBLEMATRIX_H
+
+#include <stdlib.h>
+#include <math.h>
+
+#include "mymatrix.h"
+#include "mempool.h"
+
+
+
+struct SparseDoubleElement
+{
+	int row;
+	int col;
+	struct SparseDoubleElement *rowLink;
+	struct SparseDoubleElement *colLink;
+	double data;
+};
+
+typedef struct SparseDoubleElement SparseDoubleElement;
+
+SparseDoubleElement * createSparseDoubleElement(const double data);
+SparseDoubleElement * createPidSparseDoubleElement(const double data,const int pid);
+
+void freeSparseDoubleElement(SparseDoubleElement *ptr);
+void freePidSparseDoubleElement(SparseDoubleElement *ptr,const int pid);
+
+//=============================================
+
+struct SparseDoubleMatrix
+{
+	int totalRow;
+	int totalCol;
+	int nnz;
+	SparseDoubleElement **rowIndex;
+	SparseDoubleElement **colIndex;
+};
+
+typedef struct SparseDoubleMatrix SparseDoubleMatrix;
+
+SparseDoubleMatrix *createSparseDoubleMatrix(const int row,const int col);
+SparseDoubleMatrix *createPidSparseDoubleMatrix(const int row,const int col,const int pid);
+
+void freeSparseDoubleMatrix(SparseDoubleMatrix *ptr);
+void freePidSparseDoubleMatrix(SparseDoubleMatrix *ptr,const int pid);
+
+// important: element can NOT be null
+// set ptr->data[rowIndex][colIndex] = element
+// will copy a new element into the ptr->data[rowIndex][colIndex]
+// will automatically create the entry if ptr->data[rowIndex][colIndex] is null
+void setSparseDoubleMatrix(SparseDoubleMatrix *ptr,const double element,const int rowIndex, const int colIndex);
+void setPidSparseDoubleMatrix(SparseDoubleMatrix *ptr,const double element,const int rowIndex, const int colIndex,const int pid);
+
+void setFastSparseDoubleMatrix(SparseDoubleMatrix *ptr,const double element ,const int rowIndex, const int colIndex,SparseDoubleElement **baseRow,SparseDoubleElement **baseCol);
+void setFastPidSparseDoubleMatrix(SparseDoubleMatrix *ptr,const double element ,const int rowIndex, const int colIndex,SparseDoubleElement **baseRow,SparseDoubleElement **baseCol,const int pid);
+
+// will return 0 if the entry is empty
+double getSparseDoubleMatrix(const SparseDoubleMatrix *ptr, const int rowIndex, const int colIndex);
+double getFastRowSparseDoubleMatrix(const SparseDoubleMatrix *ptr, const int rowIndex, const int colIndex, SparseDoubleElement **baseRow);
+double getFastColSparseDoubleMatrix(const SparseDoubleMatrix *ptr, const int rowIndex, const int colIndex, SparseDoubleElement **baseCol);
+
+// will skip the entry if it is empty
+void delSparseDoubleMatrix(SparseDoubleMatrix *ptr, const int rowIndex,const int colIndex);
+void delPidSparseDoubleMatrix(SparseDoubleMatrix *ptr, const int rowIndex,const int colIndex,const int pid);
+void delFastPidSparseDoubleMatrix(SparseDoubleMatrix *ptr, const int rowIndex, const int colIndex, SparseDoubleElement **baseRow, SparseDoubleElement **baseCol,const int pid);
+
+// dump out row by row
+void dumpSparseDoubleMatrix(FILE *fp,const SparseDoubleMatrix *ptr);
+
+void plotSparseDoubleMatrix(FILE *fp, const SparseDoubleMatrix *ptr);
+
+// swap 2 rows // suck implement
+void swapRowSparseDoubleMatrix(SparseDoubleMatrix *ptr, const int row1, const int row2);
+
+void copySparseDoubleMatrix(SparseDoubleMatrix *dest, const SparseDoubleMatrix *src);
+void copyPidSparseDoubleMatrix(SparseDoubleMatrix *dest, const SparseDoubleMatrix *src,const int pid);
+
+// clear the SparseMatrix to the initial state
+void clearSparseDoubleMatrix(SparseDoubleMatrix *ptr);
+void clearPidSparseDoubleMatrix(SparseDoubleMatrix *ptr,const int pid);
+
+// c = a + b
+void addSparseDoubleMatrix(SparseDoubleMatrix *c,const SparseDoubleMatrix *a,const SparseDoubleMatrix *b);
+
+// c = a - b
+void subSparseDoubleMatrix(SparseDoubleMatrix *c,const SparseDoubleMatrix *a,const SparseDoubleMatrix *b);
+
+// c = a * b
+void mulSparseDoubleMatrix(SparseDoubleMatrix *c,const SparseDoubleMatrix *a,const SparseDoubleMatrix *b);
+
+// c = k * a , k is a scale
+void scaleSparseDoubleMatrix(SparseDoubleMatrix *c,const double k,const SparseDoubleMatrix *a);
+
+// c = trans(A)
+void transSparseDoubleMatrix(SparseDoubleMatrix *c, const SparseDoubleMatrix *a);
+
+// c = a * b, (sparse multiply dense)
+// a is a sparse matrix
+// b is a n*1 double Matrix
+// c is a n*1 double Matrix
+void mulVecSparseDoubleMatrix(double *c,const SparseDoubleMatrix *a, const double *b);
+
+// set a as identity matrix
+void identitySparseDoubleMatrix(SparseDoubleMatrix *a);
+void identityPidSparseDoubleMatrix(SparseDoubleMatrix *a,const int pid);
+
+
+// a(i,j) = a(i,j) + element
+// will allocate the memory if necessary
+void incSparseDoubleMatrix(SparseDoubleMatrix *a,const double element,const int row, const int col);
+
+
+// a(i,j) = a(i,j) - element
+// will allocate the memory if necessary
+void decSparseDoubleMatrix(SparseDoubleMatrix *a,const double element,const int row, const int col);
+SparseDoubleElement * decFastSparseDoubleMatrix(SparseDoubleMatrix *ptr,const double element,const int rowIndex, const int colIndex,SparseDoubleElement *baseRow, SparseDoubleElement *baseCol);
+
+// dest and src should be allocated before calling this function
+// the src is assumed to solve as myMatrix format
+// the dimension of src and dest should be the same
+void dense2SparseDoubleMatrix(SparseDoubleMatrix *dest,const double *src);
+void dense2PidSparseDoubleMatrix(SparseDoubleMatrix *dest,const double *src,const int pid);
+
+void sparse2DenseDoubleMatrix(double *dest,const SparseDoubleMatrix *src);
+
+
+// dest(i,col) will be delete if isEmptyQuadElement(src(i,0)) is true
+void setDenseCol2SparseDoubleMatrix(SparseDoubleMatrix *dest, const double *src,const int totalRow, const int targetCol);
+
+// just set src(i,0) to dest(i,col) directly without delete step.
+// ( so, the dest might be clear before calling this function)
+void setDenseColQuick2SparseDoubleMatrix(SparseDoubleMatrix *dest, const double *src, const int totalRow, const int targetCol);
+
+
+// the boundaries row1,col1,row2,col2 are included
+void clearBlockSparseDoubleMatrix(SparseDoubleMatrix *dest, const int row1, const int col1, const int row2, const int col2);
+
+// the boundaries row1,col1,row2,col2 are included
+void appendBlockSparseDoubleMatrix(SparseDoubleMatrix *dest, const SparseDoubleMatrix *src, const int row1, const int col1, const int row2, const int col2);
+
+
+// merge 2 matrix dest and src
+// append the whole src into dest, the "base point" of the left top corner is (ltRowDwst,ltColDest)
+void mergeSparseDoubleMatrix(SparseDoubleMatrix *dest, const SparseDoubleMatrix *src, const int destRow, const int destCol,const int ltRowDest, const int ltColDest);
+void mergePidSparseDoubleMatrix(SparseDoubleMatrix *dest, const SparseDoubleMatrix *src, const int destRow, const int destCol,const int ltRowDest, const int ltColDest,const int pid);
+
+void getSubSparseDoubleMatrix(SparseDoubleMatrix *dest, const SparseDoubleMatrix *src, const int ltRowSrc, const int ltColSrc, const int rbRowSrc, const int rbColSrc);
+void getPidSubSparseDoubleMatrix(SparseDoubleMatrix *dest, const SparseDoubleMatrix *src, const int ltRowSrc, const int ltColSrc, const int rbRowSrc, const int rbColSrc,const int pid);
+
+
+// permutate 
+void permutateSparseDoubleMatrix(SparseDoubleMatrix *dest, const SparseDoubleMatrix *pRow, const SparseDoubleMatrix *pCol, const SparseDoubleMatrix *src);
+
+
+// inverse lowerTriangular
+void invLTSparseDoubleMatrix(SparseDoubleMatrix *dest, const SparseDoubleMatrix *src);
+
+#endif
+@
+
+
+1.6
+log
+@decFast is added
+@
+text
+@d7 1
+d24 2
+d27 1
+d43 1
+d46 1
+d53 4
+d60 2
+d65 2
+d77 1
+d81 1
+d106 1
+d120 7
+a126 1
+void dense2SparseDoubleMatrix(SparseDoubleMatrix *dest,const double *src,const int totalRow);
+d146 1
+a146 1
+
+d149 1
+@
+
+
+1.5
+log
+@*** empty log message ***
+@
+text
+@d100 1
+@
+
+
+1.4
+log
+@*** empty log message ***
+@
+text
+@d129 5
+@
+
+
+1.3
+log
+@*** empty log message ***
+@
+text
+@d57 2
+@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@d125 2
+a126 1
+
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@a5 1
+#include <amd.h>
+@

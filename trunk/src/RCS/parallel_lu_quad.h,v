@@ -1,0 +1,428 @@
+head	1.18;
+access;
+symbols;
+locks; strict;
+comment	@ * @;
+
+
+1.18
+date	2010.11.14.12.54.27;	author d96041;	state Exp;
+branches;
+next	1.17;
+
+1.17
+date	2010.10.23.10.47.48;	author d96041;	state Exp;
+branches;
+next	1.16;
+
+1.16
+date	2010.10.18.11.51.29;	author d96041;	state Exp;
+branches;
+next	1.15;
+
+1.15
+date	2010.10.15.09.15.19;	author d96041;	state Exp;
+branches;
+next	1.14;
+
+1.14
+date	2010.10.14.13.55.35;	author d96041;	state Exp;
+branches;
+next	1.13;
+
+1.13
+date	2010.10.13.13.17.37;	author d96041;	state Exp;
+branches;
+next	1.12;
+
+1.12
+date	2010.10.12.12.16.32;	author d96041;	state Exp;
+branches;
+next	1.11;
+
+1.11
+date	2010.10.11.10.38.54;	author d96041;	state Exp;
+branches;
+next	1.10;
+
+1.10
+date	2010.10.09.09.11.58;	author d96041;	state Exp;
+branches;
+next	1.9;
+
+1.9
+date	2010.10.06.14.03.58;	author d96041;	state Exp;
+branches;
+next	1.8;
+
+1.8
+date	2010.09.07.13.05.10;	author d96041;	state Exp;
+branches;
+next	1.7;
+
+1.7
+date	2010.08.24.12.29.12;	author d96041;	state Exp;
+branches;
+next	1.6;
+
+1.6
+date	2010.07.17.09.06.10;	author d96041;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	2010.06.28.12.54.39;	author r97124;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	2010.06.25.03.01.13;	author r97124;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	2010.06.24.09.04.14;	author r97124;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2010.06.24.08.40.15;	author r97124;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2010.06.24.08.34.19;	author r97124;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.18
+log
+@*** empty log message ***
+@
+text
+@#ifndef PARALLEL_LU_QUAD_H
+#define PARALLEL_LU_QUAD_H
+
+#include <gdsl_types.h>
+#include <gdsl_queue.h>
+#include <gsl_math.h>
+
+#include "sparsequadmatrix.h"
+#include "partition_double.h"
+#include "parallel_lu_common.h"
+#include "solvesparsequadmatrix.h"
+
+
+
+struct ALUQuad
+{
+	SparseQuadMatrix *a;
+	SparseQuadMatrix *l;
+	SparseQuadMatrix *u;
+};
+
+typedef struct ALUQuad ALUQuad;
+
+
+
+struct ParallelDoneList
+{
+	int orderList[15];
+	int done[16]; // set in 1 base
+	int gvNum;
+	int eachNodeCurrentDone[16]; // set in 1 base and init all elements to zero
+
+	ALUQuad **alu; // the same as it in ParallelLUQuadShareData
+	const ParallelETree *tree; // the same as it in ParallelLUQuadShareData
+	const SparseQuadMatrix *a; // the same as it in ParallelLUQuadShareData
+};
+
+typedef struct ParallelDoneList ParallelDoneList;
+
+
+
+
+struct ParallelLUQuadShareDataNew
+{
+	ParallelDoneList *doneList;
+	ToDoList *todolist;	
+
+	// internal used mutex and cv
+	pthread_mutex_t *mutex;
+	pthread_cond_t *cond;
+
+	int pid;
+	int N;
+	int rootCurrentBegin;
+	int currentEnd;
+};
+
+typedef struct ParallelLUQuadShareDataNew ParallelLUQuadShareDataNew;
+
+
+
+struct ThreadHandlerPar
+{
+	struct ParallelLUQuadShareDataNew **list;
+	int threadNum;
+};
+
+
+
+
+void parallelLUQuad(SparseQuadMatrix *l,SparseQuadMatrix *u, ParallelETree *tree, const SparseQuadMatrix *a, const int threadNum);
+
+
+
+
+
+
+#endif
+@
+
+
+1.17
+log
+@ok version
+@
+text
+@a14 9
+struct ToDoList
+{
+	int currentSize;
+	int list[15];
+};
+
+typedef struct ToDoList ToDoList;
+
+
+d31 2
+a32 1
+	
+a39 26
+/*
+
+struct ParallelDoneList_ext
+{
+	ParallelDoneList *doneList;
+
+	int pid;
+	int N;
+	int rootCurrentBegin;
+	int currentEnd;
+};
+
+typedef struct ParallelDoneList_ext ParallelDoneList_ext;
+
+
+
+
+struct ParallelLUQuadShareData
+{
+	ALUQuad **alu;
+	gdsl_queue_t freeSinkList; 
+	ParallelETree *tree;
+	ParallelDoneList *doneList;
+	const SparseQuadMatrix *a;
+	int pid;
+};
+a40 1
+typedef struct ParallelLUQuadShareData ParallelLUQuadShareData;
+a41 1
+*/
+@
+
+
+1.16
+log
+@ok version
+@
+text
+@a86 3
+	// the cv from src
+	pthread_mutex_t *src_mutex;
+	pthread_cond_t *src_cond;
+a100 1
+	int handler_id;
+@
+
+
+1.15
+log
+@ok version
+@
+text
+@d104 2
+a105 1
+	int pid;
+@
+
+
+1.14
+log
+@ok version
+@
+text
+@d88 1
+d101 9
+@
+
+
+1.13
+log
+@ok version
+@
+text
+@d40 1
+d42 1
+a42 1
+	ParallelETree *tree; // the same as it in ParallelLUQuadShareData
+d48 1
+a48 1
+
+d77 22
+d105 2
+@
+
+
+1.12
+log
+@ok version
+@
+text
+@d15 8
+a63 1
+
+@
+
+
+1.11
+log
+@ok version
+@
+text
+@a28 1
+//	int current;
+a31 1
+	int pid;
+d39 15
+a53 3
+//ParallelDoneList *createDoneList(void); // assume the # of lead of tree node is 8
+//void freeParallelDoneList(ParallelDoneList *);
+//int checkNextParallelDoneList(ParallelDoneList *);
+@
+
+
+1.10
+log
+@*** empty log message ***
+@
+text
+@d29 1
+a29 1
+	int current;
+d41 3
+a43 5
+ParallelDoneList *createDoneList(void); // assume the # of lead of tree node is 8
+void freeParallelDoneList(ParallelDoneList *);
+int checkNextParallelDoneList(ParallelDoneList *);
+int getAndSetNextParallelDoneList(ParallelDoneList *);
+
+@
+
+
+1.9
+log
+@*** empty log message ***
+@
+text
+@d33 1
+@
+
+
+1.8
+log
+@ok version
+@
+text
+@d14 2
+d26 22
+d53 1
+d61 2
+a63 1
+void parallelLUQuad(SparseQuadMatrix *l,SparseQuadMatrix *u, ParallelETree *tree, const SparseQuadMatrix *a, const int threadNum);
+@
+
+
+1.7
+log
+@ok version ~ parallel mem support ~
+@
+text
+@d11 1
+a11 1
+
+@
+
+
+1.6
+log
+@*** empty log message ***
+@
+text
+@d30 1
+@
+
+
+1.5
+log
+@*** empty log message ***
+@
+text
+@d13 23
+@
+
+
+1.4
+log
+@*** empty log message ***
+@
+text
+@a8 1
+#include "parallel.h"
+d10 1
+@
+
+
+1.3
+log
+@*** empty log message ***
+@
+text
+@d10 1
+a10 1
+#include "partition.h"
+@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@d13 1
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d13 2
+@

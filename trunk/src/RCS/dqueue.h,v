@@ -1,0 +1,61 @@
+head	1.1;
+access;
+symbols;
+locks; strict;
+comment	@ * @;
+
+
+1.1
+date	2010.11.14.12.54.27;	author d96041;	state Exp;
+branches;
+next	;
+
+
+desc
+@ok version
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#ifndef DQUEUE_H
+#define DQUEUE_H
+
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+struct Dqueue
+{
+	int maxSize;
+	int size;
+	int head;
+	int tail;
+	void **queue;
+};
+
+// the data is put in queue from head+1 to tail
+// typically, the size can only insert to "maxSize -1"
+
+typedef struct Dqueue Dqueue;
+
+
+Dqueue *createDqueue(const int maxSize);
+void freeDqueue(Dqueue *ptr);
+
+void dumpDqueue(FILE *fp,Dqueue *ptr);
+
+void insertTailDqueue(Dqueue *ptr, void *data);
+void *delHeadDqueue(Dqueue *ptr);
+void *delTailDqueue(Dqueue *ptr);
+
+int isFullDqueue(Dqueue *ptr);
+int isEmptyDqueue(Dqueue *ptr);
+
+
+#endif
+@

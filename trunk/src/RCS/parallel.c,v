@@ -1,0 +1,45 @@
+head	1.1;
+access;
+symbols;
+locks
+	d96041:1.1; strict;
+comment	@ * @;
+
+
+1.1
+date	2010.09.13.02.13.42;	author d96041;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#include "parallel.h"
+
+inline int block_low(int pid, int numprocs, int numelement)
+{
+	return pid*numelement / numprocs;
+}
+
+inline int block_high(int pid, int numprocs, int numelement)
+{
+	return block_low(pid+1,numprocs,numelement) -1;
+}
+
+inline int block_size(int pid, int numprocs, int numelement)
+{
+	return block_low(pid+1,numprocs,numelement) - block_low(pid,numprocs,numelement);
+}
+
+inline int block_owner(int index, int numprocs,int numelement)
+{
+	return (numprocs * (index+1) -1) / numelement;
+}
+@

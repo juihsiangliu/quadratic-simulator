@@ -1,0 +1,2992 @@
+head	1.23;
+access;
+symbols;
+locks
+	d96041:1.23; strict;
+comment	@ * @;
+
+
+1.23
+date	2010.11.14.12.48.53;	author d96041;	state Exp;
+branches;
+next	1.22;
+
+1.22
+date	2010.10.27.13.18.26;	author d96041;	state Exp;
+branches;
+next	1.21;
+
+1.21
+date	2010.10.23.10.47.11;	author d96041;	state Exp;
+branches;
+next	1.20;
+
+1.20
+date	2010.10.06.14.04.02;	author d96041;	state Exp;
+branches;
+next	1.19;
+
+1.19
+date	2010.09.15.10.48.14;	author d96041;	state Exp;
+branches;
+next	1.18;
+
+1.18
+date	2010.09.14.16.18.13;	author d96041;	state Exp;
+branches;
+next	1.17;
+
+1.17
+date	2010.09.13.11.29.25;	author d96041;	state Exp;
+branches;
+next	1.16;
+
+1.16
+date	2010.09.12.10.24.45;	author d96041;	state Exp;
+branches;
+next	1.15;
+
+1.15
+date	2010.09.02.12.31.23;	author d96041;	state Exp;
+branches;
+next	1.14;
+
+1.14
+date	2010.08.30.14.08.23;	author d96041;	state Exp;
+branches;
+next	1.13;
+
+1.13
+date	2010.08.28.08.42.46;	author d96041;	state Exp;
+branches;
+next	1.12;
+
+1.12
+date	2010.08.25.12.54.50;	author d96041;	state Exp;
+branches;
+next	1.11;
+
+1.11
+date	2010.08.14.09.27.17;	author d96041;	state Exp;
+branches;
+next	1.10;
+
+1.10
+date	2010.08.13.13.17.09;	author d96041;	state Exp;
+branches;
+next	1.9;
+
+1.9
+date	2010.08.12.14.59.39;	author d96041;	state Exp;
+branches;
+next	1.8;
+
+1.8
+date	2010.08.10.12.57.05;	author d96041;	state Exp;
+branches;
+next	1.7;
+
+1.7
+date	2010.08.02.12.08.24;	author d96041;	state Exp;
+branches;
+next	1.6;
+
+1.6
+date	2010.07.19.12.07.50;	author d96041;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	2010.07.17.09.04.42;	author d96041;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	2010.06.28.10.03.26;	author r97124;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	2010.06.25.07.22.57;	author r97124;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2010.06.25.03.01.00;	author r97124;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2010.06.24.08.33.07;	author r97124;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.23
+log
+@ok version ~ use the new "cache" scheme
+@
+text
+@#include "sparsequadmatrix.h"
+
+
+// find out the pivot from currentRow and update the pivot "p" and the goal matrix "a"
+static void updateSparseQuadMatrix(SparseQuadMatrix *a,SparseQuadMatrix *p, const int currentRow)
+{
+	SparseQuadElement *currentNode = a->colIndex[currentRow]->colLink;;
+	// move until currentNode->row >= currentRow
+	while(currentNode!=NULL && currentNode->row < currentRow) currentNode = currentNode->colLink;
+
+	if(currentNode == NULL)
+	{
+		fprintf(stderr,"error: pivot in LU\n");
+		exit(0);
+	}
+	else if(currentNode->row == currentRow)
+	{
+		// no need to pivot
+		return;	
+	}
+	else
+	{
+		// update the permutation matrix
+		swapRowSparseQuadMatrix(p,currentRow,currentNode->row);
+		// swap currentRow and the pivot row
+		swapRowSparseQuadMatrix(a,currentRow,currentNode->row);
+	}
+}
+
+
+static int nnzInColForOpSparseQuadMatrix(const SparseQuadMatrix *a,const int col)
+{
+	int nnz = 0;
+
+	SparseQuadElement *element = a->colIndex[col]->colLink;
+	while(element!=NULL)
+	{
+		if(element->row <= col) element = element->colLink;
+		else
+		{
+			nnz++;
+			element = element->colLink;
+		}
+	}
+
+	return nnz;
+}
+
+
+static int indexOfIthElementInColSparseQuadMatrix(const SparseQuadMatrix *a, const int col, const int i)
+{
+	int j;
+	SparseQuadElement *element = a->colIndex[col]->colLink;
+	for(j=0;j<i;j++)
+	{
+		if(element == NULL) return -1;
+		else element = element->colLink;
+	}
+	return element->row;
+}
+
+
+// include Aii
+static int nnzUntilAiiSparseQuadMatrix(const SparseQuadMatrix *a, const int row)
+{
+	int nnz = 0;
+
+	SparseQuadElement *element = a->colIndex[row]->colLink;
+	while(element!=NULL)
+	{
+		if(element->row > row) break;
+		else
+		{
+			nnz++;
+			element = element->colLink;
+		}
+	}
+	return nnz;
+}
+
+
+
+
+
+
+
+//========================================================
+
+
+SparseQuadElement * createSparseQuadElement(const int gvNum)
+{
+	SparseQuadElement *ptr = getMempoolSet(sizeof(SparseQuadElement));
+
+	ptr->row = ptr->col = -1;
+	ptr->rowLink = ptr->colLink = NULL;
+	ptr->data = createQuadElement(gvNum);
+	
+	return ptr;
+}
+
+void freeSparseQuadElement(SparseQuadElement *ptr)
+{
+	freeQuadElement(ptr->data);
+	retMempoolSet(ptr,sizeof(SparseQuadElement));
+}
+
+
+
+
+SparseQuadElement * createPidSparseQuadElement(const int gvNum,const int pid)
+{
+	SparseQuadElement *ptr = getPidMempoolSet(sizeof(SparseQuadElement),pid);
+
+	ptr->row = ptr->col = -1;
+	ptr->rowLink = ptr->colLink = NULL;
+	ptr->data = createPidQuadElement(gvNum,pid);
+	
+	return ptr;
+}
+
+void freePidSparseQuadElement(SparseQuadElement *ptr,const int pid)
+{
+	freePidQuadElement(ptr->data,pid);
+	retPidMempoolSet(ptr,sizeof(SparseQuadElement),pid);
+}
+
+
+//========================================================
+
+
+
+SparseQuadMatrix *createSparseQuadMatrix(const int row,const int col,const int gvNum)
+{
+	SparseQuadMatrix *ptr = (SparseQuadMatrix *)getMempoolSet(sizeof(SparseQuadMatrix));
+	ptr->totalRow = row;
+	ptr->totalCol = col;
+	ptr->gvNum = gvNum;
+	ptr->nnz = 0;
+
+	ptr->rowIndex = (SparseQuadElement **)getMempoolSet(row*sizeof(SparseQuadElement *));
+	ptr->colIndex = (SparseQuadElement **)getMempoolSet(col*sizeof(SparseQuadElement *));
+	
+	int i;
+	for(i=0;i<row;i++)	ptr->rowIndex[i] = createSparseQuadElement(gvNum);
+	for(i=0;i<col;i++)	ptr->colIndex[i] = createSparseQuadElement(gvNum);
+	return ptr;
+}
+
+
+
+
+SparseQuadMatrix *createPidSparseQuadMatrix(const int row,const int col,const int gvNum,const int pid)
+{
+	SparseQuadMatrix *ptr = (SparseQuadMatrix *)getPidMempoolSet(sizeof(SparseQuadMatrix),pid);
+	ptr->totalRow = row;
+	ptr->totalCol = col;
+	ptr->gvNum = gvNum;
+	ptr->nnz = 0;
+
+	ptr->rowIndex = (SparseQuadElement **)getPidMempoolSet(row*sizeof(SparseQuadElement *),pid);
+	ptr->colIndex = (SparseQuadElement **)getPidMempoolSet(col*sizeof(SparseQuadElement *),pid);
+	
+	int i;
+	for(i=0;i<row;i++)	ptr->rowIndex[i] = createPidSparseQuadElement(gvNum,pid);
+	for(i=0;i<col;i++)	ptr->colIndex[i] = createPidSparseQuadElement(gvNum,pid);
+	return ptr;
+}
+
+
+void freeSparseQuadMatrix(SparseQuadMatrix *ptr)
+{
+	// free the memory row by row
+	int i;
+	SparseQuadElement *currentEntry;
+	SparseQuadElement *removeEntry;
+	for(i=0;i<ptr->totalRow;i++)
+	{
+		currentEntry = ptr->rowIndex[i]->rowLink;
+		while(currentEntry != NULL)
+		{
+			removeEntry = currentEntry;
+			currentEntry = currentEntry->rowLink;
+			freeSparseQuadElement(removeEntry);
+		}
+	}
+
+	for(i=0;i<ptr->totalRow;i++) freeSparseQuadElement(ptr->rowIndex[i]);
+	for(i=0;i<ptr->totalCol;i++) freeSparseQuadElement(ptr->colIndex[i]);
+	
+	retMempoolSet(ptr->rowIndex,ptr->totalRow*sizeof(SparseQuadElement *));
+	retMempoolSet(ptr->colIndex,ptr->totalCol*sizeof(SparseQuadElement *));
+	retMempoolSet(ptr,sizeof(SparseQuadMatrix));
+}
+
+
+
+
+
+void freePidSparseQuadMatrix(SparseQuadMatrix *ptr,const int pid)
+{
+	// free the memory row by row
+	int i;
+	SparseQuadElement *currentEntry;
+	SparseQuadElement *removeEntry;
+	for(i=0;i<ptr->totalRow;i++)
+	{
+		currentEntry = ptr->rowIndex[i]->rowLink;
+		while(currentEntry != NULL)
+		{
+			removeEntry = currentEntry;
+			currentEntry = currentEntry->rowLink;
+			freePidSparseQuadElement(removeEntry,pid);
+		}
+	}
+
+	for(i=0;i<ptr->totalRow;i++) freePidSparseQuadElement(ptr->rowIndex[i],pid);
+	for(i=0;i<ptr->totalCol;i++) freePidSparseQuadElement(ptr->colIndex[i],pid);
+	
+	retPidMempoolSet(ptr->rowIndex,ptr->totalRow*sizeof(SparseQuadElement *),pid);
+	retPidMempoolSet(ptr->colIndex,ptr->totalCol*sizeof(SparseQuadElement *),pid);
+	retPidMempoolSet(ptr,sizeof(SparseQuadMatrix),pid);
+}
+
+
+
+
+
+// important: element can NOT be null
+// set ptr->data[rowIndex][colIndex] = element
+// will copy a new element into the ptr->data[rowIndex][colIndex]
+// will automatically create the entry if ptr->data[rowIndex][colIndex] is null && element!=null
+void setSparseQuadMatrix(SparseQuadMatrix *ptr,const QuadElement *element,const int rowIndex, const int colIndex)
+{
+	SparseQuadElement *rowTarget = ptr->rowIndex[rowIndex];
+	SparseQuadElement *colTarget = ptr->colIndex[colIndex];
+	// set rowTarget
+	while(rowTarget->rowLink != NULL)
+	{
+		if(rowTarget->rowLink->col >= colIndex ) break;
+		else rowTarget = rowTarget->rowLink;
+	}
+	// set colTarget
+	while(colTarget->colLink != NULL)
+	{
+		if(colTarget->colLink->row >= rowIndex ) break;
+		else colTarget = colTarget->colLink;
+	}
+	// allocate memory if necessary
+	if(rowTarget->rowLink == NULL || rowTarget->rowLink->col!=colIndex)
+	{
+		ptr->nnz++;
+		SparseQuadElement *insert = createSparseQuadElement(element->gvNum);
+		insert->row = rowIndex;
+		insert->col = colIndex;
+		insert->rowLink = rowTarget->rowLink;
+		insert->colLink = colTarget->colLink;	
+		copyQuadElement(insert->data,element);
+		// update the information of target
+		rowTarget->rowLink = insert;
+		colTarget->colLink = insert;
+	}
+	else copyQuadElement(rowTarget->rowLink->data,element);
+}
+
+
+
+
+
+
+
+// important: element can NOT be null
+// set ptr->data[rowIndex][colIndex] = element
+// will copy a new element into the ptr->data[rowIndex][colIndex]
+// will automatically create the entry if ptr->data[rowIndex][colIndex] is null && element!=null
+void setPidSparseQuadMatrix(SparseQuadMatrix *ptr,const QuadElement *element,const int rowIndex, const int colIndex,const int pid)
+{
+	SparseQuadElement *rowTarget = ptr->rowIndex[rowIndex];
+	SparseQuadElement *colTarget = ptr->colIndex[colIndex];
+	// set rowTarget
+	while(rowTarget->rowLink != NULL)
+	{
+		if(rowTarget->rowLink->col >= colIndex ) break;
+		else rowTarget = rowTarget->rowLink;
+	}
+	// set colTarget
+	while(colTarget->colLink != NULL)
+	{
+		if(colTarget->colLink->row >= rowIndex ) break;
+		else colTarget = colTarget->colLink;
+	}
+	// allocate memory if necessary
+	if(rowTarget->rowLink == NULL || rowTarget->rowLink->col!=colIndex)
+	{
+		ptr->nnz++;
+		SparseQuadElement *insert = createPidSparseQuadElement(element->gvNum,pid);
+		insert->row = rowIndex;
+		insert->col = colIndex;
+		insert->rowLink = rowTarget->rowLink;
+		insert->colLink = colTarget->colLink;	
+		copyQuadElement(insert->data,element);
+		// update the information of target
+		rowTarget->rowLink = insert;
+		colTarget->colLink = insert;
+	}
+	else copyQuadElement(rowTarget->rowLink->data,element);
+}
+
+
+
+
+void setFastSparseQuadMatrix(SparseQuadMatrix *ptr,const QuadElement *element,const int rowIndex, const int colIndex,SparseQuadElement **baseRow,SparseQuadElement **baseCol)
+{
+	SparseQuadElement *rowTarget = NULL;
+	SparseQuadElement *colTarget = NULL;
+	
+	// check *baseRow is available and legal
+	if((*baseRow)!=NULL)
+	{
+		if((*baseRow)->row == rowIndex && (*baseRow)->col < colIndex)
+		{
+			rowTarget = *baseRow;
+		}
+	}
+	// check *baseCol is available and legal
+	if((*baseCol)!=NULL)
+	{
+		if((*baseCol)->col == colIndex && (*baseCol)->row < rowIndex)
+		{
+			colTarget = *baseCol;
+		}
+	}
+	// not set by rowBase 
+	if(rowTarget == NULL)  rowTarget = ptr->rowIndex[rowIndex];
+//	else printf("rowTarget is useful\n");
+
+	// not set by colBase 
+	if(colTarget == NULL)  colTarget = ptr->colIndex[colIndex];
+//	else printf("colTarget is useful\n");
+
+	// set rowTarget
+	while(rowTarget->rowLink != NULL)
+	{
+		if(rowTarget->rowLink->col >= colIndex ) break;
+		else rowTarget = rowTarget->rowLink;
+	}
+	// set colTarget
+	while(colTarget->colLink != NULL)
+	{
+		if(colTarget->colLink->row >= rowIndex ) break;
+		else colTarget = colTarget->colLink;
+	}
+	// allocate memory if necessary
+	if(rowTarget->rowLink == NULL || rowTarget->rowLink->col!=colIndex)
+	{
+		ptr->nnz++;
+		SparseQuadElement *insert = createSparseQuadElement(element->gvNum);
+		insert->row = rowIndex;
+		insert->col = colIndex;
+		insert->rowLink = rowTarget->rowLink;
+		insert->colLink = colTarget->colLink;	
+		copyQuadElement(insert->data,element);
+		// update the information of target
+		rowTarget->rowLink = insert;
+		colTarget->colLink = insert;
+	}
+	else copyQuadElement(rowTarget->rowLink->data,element);
+
+	*baseRow = rowTarget;
+	*baseCol = colTarget;
+}
+
+
+
+
+
+
+void setFastPidSparseQuadMatrix(SparseQuadMatrix *ptr,const QuadElement *element,const int rowIndex, const int colIndex,SparseQuadElement **baseRow,SparseQuadElement **baseCol,const int pid)
+{
+	SparseQuadElement *rowTarget = NULL;
+	SparseQuadElement *colTarget = NULL;
+	
+	// check *baseRow is available and legal
+	if((*baseRow)!=NULL)
+	{
+		if((*baseRow)->row == rowIndex && (*baseRow)->col < colIndex)
+		{
+			rowTarget = *baseRow;
+		}
+	}
+	// check *baseCol is available and legal
+	if((*baseCol)!=NULL)
+	{
+		if((*baseCol)->col == colIndex && (*baseCol)->row < rowIndex)
+		{
+			colTarget = *baseCol;
+		}
+	}
+	// not set by rowBase 
+	if(rowTarget == NULL)  rowTarget = ptr->rowIndex[rowIndex];
+	// not set by colBase 
+	if(colTarget == NULL)  colTarget = ptr->colIndex[colIndex];
+	// set rowTarget
+	while(rowTarget->rowLink != NULL)
+	{
+		if(rowTarget->rowLink->col >= colIndex ) break;
+		else rowTarget = rowTarget->rowLink;
+	}
+	// set colTarget
+	while(colTarget->colLink != NULL)
+	{
+		if(colTarget->colLink->row >= rowIndex ) break;
+		else colTarget = colTarget->colLink;
+	}
+	// allocate memory if necessary
+	if(rowTarget->rowLink == NULL || rowTarget->rowLink->col!=colIndex)
+	{
+		ptr->nnz++;
+		SparseQuadElement *insert = createPidSparseQuadElement(element->gvNum,pid);
+		insert->row = rowIndex;
+		insert->col = colIndex;
+		insert->rowLink = rowTarget->rowLink;
+		insert->colLink = colTarget->colLink;	
+		copyQuadElement(insert->data,element);
+		// update the information of target
+		rowTarget->rowLink = insert;
+		colTarget->colLink = insert;
+	}
+	else copyQuadElement(rowTarget->rowLink->data,element);
+
+	*baseRow = rowTarget;
+	*baseCol = colTarget;
+}
+
+
+
+
+
+
+static const SparseQuadElement *getNewSparseQuadMatrix(const SparseQuadMatrix *ptr, const int rowIndex, const int colIndex)
+{
+	SparseQuadElement *target = ptr->rowIndex[rowIndex]->rowLink;
+	// set target
+	while(target != NULL)
+	{
+		if(target->col >= colIndex ) break;
+		else target = target->rowLink;
+	}
+	if(target == NULL || target->col!=colIndex) return NULL;
+	else return target;
+}
+
+
+
+
+
+const QuadElement *getSparseQuadMatrix(const SparseQuadMatrix *ptr, const int rowIndex, const int colIndex)
+{
+	const SparseQuadElement *target = getNewSparseQuadMatrix(ptr,rowIndex,colIndex);
+	if(target == NULL) return NULL;
+	else return target->data;
+}
+
+
+
+
+
+const QuadElement *getFastRowSparseQuadMatrix(const SparseQuadMatrix *ptr, const int rowIndex, const int colIndex,SparseQuadElement **baseRow)
+{
+	SparseQuadElement *target = ptr->rowIndex[rowIndex]->rowLink;
+
+	if(*baseRow!=NULL)
+	{
+		if((*baseRow)->row == rowIndex && (*baseRow)->col > target->col && (*baseRow)->col <= colIndex)
+		{
+			target = *baseRow;
+		}
+	}
+
+	// set target
+	while(target != NULL)
+	{
+		if(target->col >= colIndex ) break;
+		else target = target->rowLink;
+	}
+	if(target == NULL || target->col!=colIndex)
+	{
+		return NULL;
+	}
+	else
+	{
+		*baseRow = target;
+		return target->data;
+	}
+}
+
+
+
+
+
+
+
+
+const QuadElement *getFastColSparseQuadMatrix(const SparseQuadMatrix *ptr,const int rowIndex, const int colIndex,SparseQuadElement **baseCol)
+{
+	SparseQuadElement *target = ptr->colIndex[colIndex]->colLink;
+
+	if(baseCol!=NULL)
+	{
+		if((*baseCol)->col == colIndex && (*baseCol)->row > target->row && (*baseCol)->col <= rowIndex)
+		{
+			target = *baseCol;
+		}
+	}
+
+	// set target
+	while(target != NULL)
+	{
+		if(target->row >= rowIndex) break;
+		else target = target->colLink;
+	}
+
+	if(target == NULL || target->row != rowIndex)
+	{
+		return NULL;
+	}
+	else 
+	{
+		*baseCol = target;
+		return target->data;
+	}
+}
+
+
+
+
+void delSparseQuadMatrix(SparseQuadMatrix *ptr, const int rowIndex,const int colIndex)
+{
+	SparseQuadElement *rowPrev = ptr->rowIndex[rowIndex];
+	SparseQuadElement *colPrev = ptr->colIndex[colIndex];
+	SparseQuadElement *del;
+	// set rowTarget
+	while(rowPrev->rowLink != NULL)
+	{
+		if(rowPrev->rowLink->col >= colIndex ) break;
+		else rowPrev = rowPrev->rowLink;
+	}
+	// set colTarget
+	while(colPrev->colLink != NULL)
+	{
+		if(colPrev->colLink->row >= rowIndex ) break;
+		else colPrev = colPrev->colLink;
+	}
+	// return directly if the entry is null
+	if(rowPrev->rowLink ==NULL || rowPrev->rowLink->col!=colIndex) return;
+	else 
+	{
+		del = rowPrev->rowLink;
+		// update the information of prev
+		rowPrev->rowLink = del->rowLink;
+		colPrev->colLink = del->colLink;
+		freeSparseQuadElement(del);
+		ptr->nnz--;
+	}
+}
+
+
+
+
+void delPidSparseQuadMatrix(SparseQuadMatrix *ptr, const int rowIndex,const int colIndex,const int pid)
+{
+	SparseQuadElement *rowPrev = ptr->rowIndex[rowIndex];
+	SparseQuadElement *colPrev = ptr->colIndex[colIndex];
+	SparseQuadElement *del;
+	// set rowTarget
+	while(rowPrev->rowLink != NULL)
+	{
+		if(rowPrev->rowLink->col >= colIndex ) break;
+		else rowPrev = rowPrev->rowLink;
+	}
+	// set colTarget
+	while(colPrev->colLink != NULL)
+	{
+		if(colPrev->colLink->row >= rowIndex ) break;
+		else colPrev = colPrev->colLink;
+	}
+	// return directly if the entry is null
+	if(rowPrev->rowLink ==NULL || rowPrev->rowLink->col!=colIndex) return;
+	else 
+	{
+		del = rowPrev->rowLink;
+		// update the information of prev
+		rowPrev->rowLink = del->rowLink;
+		colPrev->colLink = del->colLink;
+		freePidSparseQuadElement(del,pid);
+		ptr->nnz--;
+	}
+}
+
+
+
+
+void delFastSparseQuadMatrix(SparseQuadMatrix *ptr, const int rowIndex, const int colIndex, SparseQuadElement **baseRow, SparseQuadElement **baseCol)
+{
+	SparseQuadElement *rowTarget = NULL;
+	SparseQuadElement *colTarget = NULL;
+	SparseQuadElement *del;
+	
+	// check *baseRow is available and legal
+	if((*baseRow)!=NULL)
+	{
+		if((*baseRow)->row == rowIndex && (*baseRow)->col < colIndex)
+		{
+			rowTarget = *baseRow;
+		}
+	}
+	// check *baseCol is available and legal
+	if((*baseCol)!=NULL)
+	{
+		if((*baseCol)->col == colIndex && (*baseCol)->row < rowIndex)
+		{
+			colTarget = *baseCol;
+		}	
+	}
+	// not set by rowBase 
+	if(rowTarget == NULL)  rowTarget = ptr->rowIndex[rowIndex];
+	// not set by colBase 
+	if(colTarget == NULL)  colTarget = ptr->colIndex[colIndex];
+	// set rowTarget
+	while(rowTarget->rowLink != NULL)
+	{
+		if(rowTarget->rowLink->col >= colIndex ) break;
+		else rowTarget = rowTarget->rowLink;
+	}
+	// set colTarget
+	while(colTarget->colLink != NULL)
+	{
+		if(colTarget->colLink->row >= rowIndex ) break;
+		else colTarget = colTarget->colLink;
+	}
+	// return directly if the entry is null
+	if(rowTarget->rowLink == NULL || rowTarget->rowLink->col!=colIndex) 
+	{
+		// ...	
+	}
+	else 
+	{
+		del = rowTarget->rowLink;
+		// update the information of prev
+		rowTarget->rowLink = del->rowLink;
+		colTarget->colLink = del->colLink;
+		freeSparseQuadElement(del);
+		ptr->nnz--;
+	}
+	*baseRow = rowTarget;
+	*baseCol = colTarget;
+}
+
+
+
+
+
+
+void delFastPidSparseQuadMatrix(SparseQuadMatrix *ptr, const int rowIndex, const int colIndex, SparseQuadElement **baseRow, SparseQuadElement **baseCol,const int pid)
+{
+	SparseQuadElement *rowTarget = NULL;
+	SparseQuadElement *colTarget = NULL;
+	SparseQuadElement *del;
+	
+	// check *baseRow is available and legal
+	if((*baseRow)!=NULL)
+	{
+		if((*baseRow)->row == rowIndex && (*baseRow)->col < colIndex)
+		{
+			rowTarget = *baseRow;
+		}
+	}
+	// check *baseCol is available and legal
+	if((*baseCol)!=NULL)
+	{
+		if((*baseCol)->col == colIndex && (*baseCol)->row < rowIndex)
+		{
+			colTarget = *baseCol;
+		}
+	}
+	// not set by rowBase 
+	if(rowTarget == NULL)  rowTarget = ptr->rowIndex[rowIndex];
+	// not set by colBase 
+	if(colTarget == NULL)  colTarget = ptr->colIndex[colIndex];
+	// set rowTarget
+	while(rowTarget->rowLink != NULL)
+	{
+		if(rowTarget->rowLink->col >= colIndex ) break;
+		else rowTarget = rowTarget->rowLink;
+	}
+	// set colTarget
+	while(colTarget->colLink != NULL)
+	{
+		if(colTarget->colLink->row >= rowIndex ) break;
+		else colTarget = colTarget->colLink;
+	}
+	// return directly if the entry is null
+	if(rowTarget->rowLink == NULL || rowTarget->rowLink->col!=colIndex) 
+	{
+		// ...	
+	}
+	else 
+	{
+		del = rowTarget->rowLink;
+		// update the information of prev
+		rowTarget->rowLink = del->rowLink;
+		colTarget->colLink = del->colLink;
+		freePidSparseQuadElement(del,pid);
+		ptr->nnz--;
+	}
+	*baseRow = rowTarget;
+	*baseCol = colTarget;
+}
+
+
+
+
+void dumpHeadSparseQuadMatrix(FILE *fp,const SparseQuadMatrix *ptr,const char *name)
+{
+	int i;
+	fprintf(fp,"%s\n",name);
+	fprintf(fp,"row:%d,col:%d\n",ptr->totalRow,ptr->totalCol);
+	fprintf(fp,"nnz= %d\n",ptr->nnz);
+}
+
+
+
+
+
+void dumpSparseQuadMatrix(FILE *fp,const SparseQuadMatrix *ptr)
+{
+	int i;
+	fprintf(fp,"nnz= %d\n",ptr->nnz);
+	for(i=0;i<ptr->totalRow;i++)
+	{
+		SparseQuadElement *target = ptr->rowIndex[i]->rowLink;
+		while(target!=NULL)
+		{
+			fprintf(fp,"row: %d, col:%d\n",target->row,target->col);
+			fprintf(fp,"node: %p, rowLink: %p, colLink: %p\n",target,target->rowLink,target->colLink);
+			dumpQuadElement(target->data);
+			target = target->rowLink;
+		}
+	}
+}
+
+
+
+
+void swapRowSparseQuadMatrix(SparseQuadMatrix *ptr, const int row1,const int row2)
+{
+	SparseQuadMatrix *tmpMatrix = createSparseQuadMatrix(ptr->totalRow,ptr->totalCol,ptr->gvNum);
+
+	while(ptr->rowIndex[row1]->rowLink != NULL)
+	{
+		const int rowNew = row2;
+		const int col = ptr->rowIndex[row1]->rowLink->col;
+		const QuadElement *tmp = ptr->rowIndex[row1]->rowLink->data;
+		setSparseQuadMatrix(tmpMatrix,tmp,rowNew,col);
+		delSparseQuadMatrix(ptr,row1,col);
+	}
+	while(ptr->rowIndex[row2]->rowLink != NULL)
+	{
+		const int rowNew = row1;
+		const int col = ptr->rowIndex[row2]->rowLink->col;
+		const QuadElement *tmp = ptr->rowIndex[row2]->rowLink->data;
+		setSparseQuadMatrix(tmpMatrix,tmp,rowNew,col);
+		delSparseQuadMatrix(ptr,row2,col);
+	}
+	// dump tempMatrix->row1 to ptr->row1
+	while(tmpMatrix->rowIndex[row1]->rowLink != NULL)
+	{
+		const int col = tmpMatrix->rowIndex[row1]->rowLink->col;
+		const QuadElement *tmp = tmpMatrix->rowIndex[row1]->rowLink->data;
+		setSparseQuadMatrix(ptr,tmp,row1,col);
+		delSparseQuadMatrix(tmpMatrix,row1,col);
+	}
+	// dump tempMatrix->row2 to ptr->row2
+	while(tmpMatrix->rowIndex[row2]->rowLink != NULL)
+	{
+		const int col = tmpMatrix->rowIndex[row2]->rowLink->col;
+		const QuadElement *tmp = tmpMatrix->rowIndex[row2]->rowLink->data;
+		setSparseQuadMatrix(ptr,tmp,row2,col);
+		delSparseQuadMatrix(tmpMatrix,row2,col);
+	}
+	freeSparseQuadMatrix(tmpMatrix);
+}
+
+
+void clearSparseQuadMatrix(SparseQuadMatrix *ptr)
+{
+	clearPidSparseQuadMatrix(ptr,0);
+}
+
+
+
+
+
+void clearPidSparseQuadMatrix(SparseQuadMatrix *ptr,const int pid)
+{
+	// free the memory row by row
+	int i;
+	SparseQuadElement *currentEntry;
+	SparseQuadElement *removeEntry;
+	for(i=0;i<ptr->totalRow;i++)
+	{
+		currentEntry = ptr->rowIndex[i]->rowLink;
+		while(currentEntry!=NULL)
+		{
+			removeEntry = currentEntry;
+			currentEntry = removeEntry->rowLink;
+			freePidSparseQuadElement(removeEntry,pid);
+		}
+	}
+
+	for(i=0;i<ptr->totalRow;i++) ptr->rowIndex[i]->rowLink = NULL;
+	for(i=0;i<ptr->totalCol;i++) ptr->colIndex[i]->colLink = NULL;
+	ptr->nnz = 0;
+}
+
+
+
+
+void copySparseQuadMatrix(SparseQuadMatrix *dest,const SparseQuadMatrix *src)
+{
+	copyPidSparseQuadMatrix(dest,src,0);
+}
+
+
+
+
+
+void copyPidSparseQuadMatrix(SparseQuadMatrix *dest,const SparseQuadMatrix *src,const int pid)
+{
+	if(dest == src) return;
+
+	clearPidSparseQuadMatrix(dest,pid);
+	int i;	
+	SparseQuadElement **rowCache = getMempoolSet(sizeof(SparseQuadElement *)*src->totalRow);
+	for(i=0;i<src->totalRow;i++) rowCache[i] = NULL;
+	SparseQuadElement **colCache = getMempoolSet(sizeof(SparseQuadElement *)*src->totalCol);
+	for(i=0;i<src->totalCol;i++) colCache[i] = NULL;
+	SparseQuadElement *currentEntry;
+	for(i=0;i<src->totalRow;i++)
+	{
+		currentEntry = src->rowIndex[i];
+		while(currentEntry->rowLink!=NULL)
+		{
+			const int insCol = currentEntry->rowLink->col;
+			setFastPidSparseQuadMatrix(dest,currentEntry->rowLink->data,i,insCol,&rowCache[i],&colCache[insCol],pid);
+			currentEntry = currentEntry->rowLink;
+		}
+	}
+	retMempoolSet(rowCache,sizeof(SparseQuadElement *)*src->totalRow);
+	retMempoolSet(colCache,sizeof(SparseQuadElement *)*src->totalCol);
+}
+
+
+
+
+
+
+void addSparseQuadMatrix(SparseQuadMatrix *c, const SparseQuadMatrix *a,const SparseQuadMatrix *b)
+{
+	addPidSparseQuadMatrix(c,a,b,0);
+}
+
+
+
+
+
+void addPidSparseQuadMatrix(SparseQuadMatrix *c, const SparseQuadMatrix *a,const SparseQuadMatrix *b,const int pid)
+{
+	SparseQuadMatrix *cResult = createPidSparseQuadMatrix(a->totalRow,a->totalCol,a->gvNum,pid);
+	QuadElement *entryC = createPidQuadElement(a->gvNum,pid);
+	SparseQuadElement *entryA;
+	SparseQuadElement *entryB;
+	int i;
+	for(i=0;i<a->totalRow;i++)
+	{
+		// add row by row ,
+		// increase min(col1,col2) until row a or row b is null
+		// then insert the remaining of that row
+		entryA = a->rowIndex[i]->rowLink;
+		entryB = b->rowIndex[i]->rowLink;
+		while(entryA!=NULL && entryB!=NULL)
+		{
+			if(entryA->col < entryB->col)
+			{
+				const QuadElement *targetA = entryA->data;
+				setPidSparseQuadMatrix(cResult,targetA,i,entryA->col,pid);
+				entryA = entryA->rowLink;
+			}
+			else if(entryA->col > entryB->col)
+			{
+				const QuadElement *targetB = entryB->data;
+				setPidSparseQuadMatrix(cResult,targetB,i,entryB->col,pid);
+				entryB = entryB->rowLink;
+			}
+			else
+			{
+				const QuadElement *targetA = entryA->data;
+				const QuadElement *targetB = entryB->data;
+				addQuadElement(entryC,targetA,targetB);
+				setPidSparseQuadMatrix(cResult,entryC,i,entryA->col,pid);
+				entryA = entryA->rowLink;
+				entryB = entryB->rowLink;
+			}
+		}
+		// insert the remaining of a
+		while(entryA!=NULL)
+		{
+			const QuadElement *targetA = entryA->data;
+			setPidSparseQuadMatrix(cResult,targetA,i,entryA->col,pid);
+			entryA = entryA->rowLink;
+		}
+		// insert the remaining of b
+		while(entryB!=NULL)
+		{
+			const QuadElement *targetB = entryB->data;
+			setPidSparseQuadMatrix(cResult,targetB,i,entryB->col,pid);
+			entryB = entryB->rowLink;
+		}
+	}
+	copyPidSparseQuadMatrix(c,cResult,pid);
+	
+	freePidSparseQuadMatrix(cResult,pid);
+	freePidQuadElement(entryC,pid);
+}
+
+
+
+
+// c = a - b
+void subSparseQuadMatrix(SparseQuadMatrix *c, const SparseQuadMatrix *a,const SparseQuadMatrix *b)
+{
+	subPidSparseQuadMatrix(c,a,b,0);
+}
+
+
+
+
+
+void subPidSparseQuadMatrix(SparseQuadMatrix *c, const SparseQuadMatrix *a,const SparseQuadMatrix *b,const int pid)
+{
+	SparseQuadMatrix *cResult = createPidSparseQuadMatrix(a->totalRow,a->totalCol,a->gvNum,pid);
+	QuadElement *entryC = createPidQuadElement(a->gvNum,pid);
+	SparseQuadElement *entryA;
+	SparseQuadElement *entryB;
+	int i;
+	for(i=0;i<a->totalRow;i++)
+	{
+		// sub row by row ,
+		// increase min(col1,col2) until row a or row b is null
+		// then insert the remaining of that row
+		entryA = a->rowIndex[i]->rowLink;
+		entryB = b->rowIndex[i]->rowLink;
+		while(entryA!=NULL && entryB!=NULL)
+		{
+			if(entryA->col < entryB->col)
+			{
+				const QuadElement *targetA = entryA->data;
+				setPidSparseQuadMatrix(cResult,targetA,i,entryA->col,pid);
+				entryA = entryA->rowLink;
+			}
+			else if(entryA->col > entryB->col)
+			{
+				const QuadElement *targetA = NULL;
+				const QuadElement *targetB = entryB->data;
+				subQuadElement(entryC,targetA,targetB);
+				setPidSparseQuadMatrix(cResult,entryC,i,entryB->col,pid);
+				entryB = entryB->rowLink;
+			}
+			else
+			{
+				const QuadElement *targetA = entryA->data;
+				const QuadElement *targetB = entryB->data;
+				subQuadElement(entryC,targetA,targetB);
+				setPidSparseQuadMatrix(cResult,entryC,i,entryA->col,pid);
+				entryA = entryA->rowLink;
+				entryB = entryB->rowLink;
+			}
+		}
+		// insert the remaining of a
+		while(entryA!=NULL)
+		{
+			const QuadElement *targetA = entryA->data;
+			setPidSparseQuadMatrix(cResult,targetA,i,entryA->col,pid);
+			entryA = entryA->rowLink;
+		}
+		// insert the remaining of b
+		while(entryB!=NULL)
+		{
+			const QuadElement *targetA = NULL;
+			const QuadElement *targetB = entryB->data;
+			subQuadElement(entryC,targetA,targetB);
+			setPidSparseQuadMatrix(cResult,entryC,i,entryB->col,pid);
+			entryB = entryB->rowLink;
+		}
+	}
+	copyPidSparseQuadMatrix(c,cResult,pid);
+	
+	freePidSparseQuadMatrix(cResult,pid);
+	freePidQuadElement(entryC,pid);
+}
+
+
+
+
+// c = a * b
+void mulSparseQuadMatrix(SparseQuadMatrix *c, const SparseQuadMatrix *a, const SparseQuadMatrix *b)
+{
+	SparseQuadMatrix *cResult = createSparseQuadMatrix(c->totalRow,c->totalCol,c->gvNum);
+	QuadElement *entryC = createQuadElement(a->gvNum);
+	SparseQuadElement *entryA;
+	SparseQuadElement *entryB;
+	int i,j;
+	for(i=0;i<a->totalRow;i++)
+	{
+		for(j=0;j<b->totalCol;j++)
+		{
+			int flag = 0;
+			QuadElement *tempSum = createQuadElement(a->gvNum);
+			entryA = a->rowIndex[i]->rowLink;
+			entryB = b->colIndex[j]->colLink;
+			// calculate the product of row a(i,:) and col b(:,j) 
+			// and then set to c(i,j)
+			while(entryA!=NULL && entryB!=NULL)
+			{
+				if(entryA->col < entryB->row)
+				{
+					entryA = entryA->rowLink;
+				}
+				else if(entryA->col > entryB->row)
+				{
+					entryB = entryB->colLink;
+				}
+				else
+				{
+					const QuadElement *targetA = entryA->data;
+					const QuadElement *targetB = entryB->data;
+					mulQuadElement(entryC,targetA,targetB);
+					addQuadElement(tempSum,tempSum,entryC);
+					entryA = entryA->rowLink;
+					entryB = entryB->colLink;
+					flag = 1;
+				}
+			}
+			if(flag==1) setSparseQuadMatrix(cResult,tempSum,i,j);
+			freeQuadElement(tempSum);
+		}
+	}
+	copySparseQuadMatrix(c,cResult);
+	
+	freeSparseQuadMatrix(cResult);
+	freeQuadElement(entryC);
+}
+
+
+// c = k * a , k is a scale
+void scaleSparseQuadMatrix(SparseQuadMatrix *c,const double k,const SparseQuadMatrix *a)
+{
+	int i;
+	SparseQuadElement *entryA;
+	QuadElement *entryC = createQuadElement(a->gvNum);
+	SparseQuadMatrix *cResult = createSparseQuadMatrix(a->totalRow,a->totalCol,a->gvNum);
+	for(i=0;i<a->totalRow;i++)
+	{
+		entryA = a->rowIndex[i]->rowLink;
+		while(entryA!=NULL)
+		{
+			const QuadElement *targetA = entryA->data;
+			scaleQuadElement(entryC,k,targetA);
+			setSparseQuadMatrix(cResult,entryC,i,entryA->col);
+			entryA = entryA->rowLink;
+		}
+	}
+	copySparseQuadMatrix(c,cResult);
+	freeQuadElement(entryC);
+	freeSparseQuadMatrix(cResult);
+}
+
+
+
+
+void scalePidSparseQuadMatrix(SparseQuadMatrix *c,const double k,const SparseQuadMatrix *a,const int pid)
+{
+	int i;
+	SparseQuadElement *entryA;
+	QuadElement *entryC = createPidQuadElement(a->gvNum,pid);
+	SparseQuadMatrix *cResult = createPidSparseQuadMatrix(a->totalRow,a->totalCol,a->gvNum,pid);
+	for(i=0;i<a->totalRow;i++)
+	{
+		entryA = a->rowIndex[i]->rowLink;
+		while(entryA!=NULL)
+		{
+			const QuadElement *targetA = entryA->data;
+			scaleQuadElement(entryC,k,targetA);
+			setPidSparseQuadMatrix(cResult,entryC,i,entryA->col,pid);
+			entryA = entryA->rowLink;
+		}
+	}
+	copyPidSparseQuadMatrix(c,cResult,pid);
+	freePidQuadElement(entryC,pid);
+	freePidSparseQuadMatrix(cResult,pid);
+}
+
+
+
+
+// c = trans(A)
+void transSparseQuadMatrix(SparseQuadMatrix *c, const SparseQuadMatrix *a)
+{
+	int i;
+	SparseQuadElement *entryA;
+	QuadElement *entryC = createQuadElement(a->gvNum);
+	SparseQuadMatrix *cResult = createSparseQuadMatrix(a->totalRow,a->totalCol,a->gvNum);
+	for(i=0;i<a->totalRow;i++)
+	{
+		entryA = a->rowIndex[i]->rowLink;
+		while(entryA!=NULL)
+		{
+			const QuadElement *targetA = entryA->data;
+			setSparseQuadMatrix(cResult,targetA,entryA->col,i);
+			entryA = entryA->rowLink;
+		}
+	}
+	copySparseQuadMatrix(c,cResult);
+	freeQuadElement(entryC);
+	freeSparseQuadMatrix(cResult);
+}
+
+
+
+// c = a * b, (sparse multiply dense)
+// a is a sparse matrix
+// b is a n*1 QuadMatrix
+// c is a n*1 QuadMatrix
+void mulVecSparseQuadMatrix(QuadMatrix *c,const SparseQuadMatrix *a, const QuadMatrix *b)
+{
+	int i,j;
+	SparseQuadElement *entryA;
+	QuadElement *entryC = createQuadElement(a->gvNum);
+	QuadMatrix *cResult = createQuadMatrix(a->totalRow,1,a->gvNum);
+	QuadElement *sum = createQuadElement(a->gvNum);
+
+	setZeroQuadElement(sum,a->gvNum);
+	for(i=0;i<a->totalRow;i++)
+	{
+		entryA = a->rowIndex[i]->rowLink;
+		resetQuadElement(sum);
+		while(entryA!=NULL)
+		{
+			const QuadElement *targetA = entryA->data;
+			const QuadElement *targetB = getPtrEntryQuadMatrix(b,entryA->col,0);
+			mulQuadElement(entryC,targetA,targetB);
+			addQuadElement(sum,sum,entryC);
+			entryA = entryA->rowLink;
+		}
+		setQuadMatrix(cResult,sum,i,0);
+	}
+	copyQuadMatrix(c,cResult);
+	
+	freeQuadElement(entryC);
+	freeQuadMatrix(cResult);
+	freeQuadElement(sum);
+}
+
+
+
+
+
+void mulVecPidSparseQuadMatrix(QuadMatrix *c,const SparseQuadMatrix *a, const QuadMatrix *b,const int pid)
+{
+	int i,j;
+	SparseQuadElement *entryA;
+	QuadElement *entryC = createPidQuadElement(a->gvNum,pid);
+	QuadMatrix *cResult = createPidQuadMatrix(a->totalRow,1,a->gvNum,pid);
+	QuadElement *sum = createPidQuadElement(a->gvNum,pid);
+
+	setZeroPidQuadElement(sum,a->gvNum,pid);
+	for(i=0;i<a->totalRow;i++)
+	{
+		entryA = a->rowIndex[i]->rowLink;
+		resetQuadElement(sum);
+		while(entryA!=NULL)
+		{
+			const QuadElement *targetA = entryA->data;
+			const QuadElement *targetB = getPtrEntryQuadMatrix(b,entryA->col,0);
+			mulPidQuadElement(entryC,targetA,targetB,pid);
+			addQuadElement(sum,sum,entryC);
+			entryA = entryA->rowLink;
+		}
+		setPidQuadMatrix(cResult,sum,i,0,pid);
+	}
+	copyPidQuadMatrix(c,cResult,pid);
+	
+	freePidQuadElement(entryC,pid);
+	freePidQuadMatrix(cResult,pid);
+	freePidQuadElement(sum,pid);
+}
+
+
+
+void identitySparseQuadMatrix(SparseQuadMatrix *a)
+{
+	identityPidSparseQuadMatrix(a,0);
+}
+
+
+
+// set a as identity matrix
+void identityPidSparseQuadMatrix(SparseQuadMatrix *a,const int pid)
+{
+	clearPidSparseQuadMatrix(a,pid);
+	QuadElement *element = createPidQuadElement(a->gvNum,pid);
+	element->m = 1.0;
+	int i;
+	for(i=0;i<a->totalRow;i++) setPidSparseQuadMatrix(a,element,i,i,pid);
+
+	freePidQuadElement(element,pid);
+}
+
+
+
+struct SparseLUParParallel
+{
+	int currentRow;
+	// for(i = rowLow ; i<rowHigh+1 ; i++)
+	int rowLow;
+	int rowHigh; // op will include this row
+	SparseQuadMatrix *aCopy;
+	SparseQuadMatrix *partialL;
+};
+
+
+static void *eliminateRows(void *ptr)
+{
+	struct SparseLUParParallel *par = (struct SparseLUParParallel *) ptr;
+	const SparseQuadElement *aii = par->aCopy->rowIndex[par->currentRow]->rowLink;
+	QuadElement *scale = createQuadElement(par->aCopy->gvNum);
+	QuadElement *element = createQuadElement(par->aCopy->gvNum);
+	
+	SparseQuadElement *eachRow = aii->colLink;
+	while(eachRow != NULL) // update E
+	{
+		if(eachRow->row < par->rowLow )
+		{
+			eachRow = eachRow->colLink;
+			continue;
+		}
+		else if( eachRow->row > par->rowHigh) break;
+		else
+		{
+			divQuadElement(scale,eachRow->data,aii->data);
+			
+//			fprintf(stderr,"(%d,%d)\n",eachRow->row,par->currentRow);
+			setSparseQuadMatrix(par->partialL,scale,eachRow->row,par->currentRow);
+	
+			SparseQuadElement *inRow = aii->rowLink;
+			while(inRow != NULL)
+			{
+				mulQuadElement(element,scale,getSparseQuadMatrix(par->aCopy,par->currentRow,inRow->col));
+				subQuadElement(element,getSparseQuadMatrix(par->aCopy,eachRow->row,inRow->col),element);
+				setSparseQuadMatrix(par->aCopy,element,eachRow->row,inRow->col);
+				inRow = inRow->rowLink;
+			}
+			delSparseQuadMatrix(par->aCopy,eachRow->row,par->currentRow);
+			eachRow = eachRow->colLink;
+		}
+	}
+
+	freeQuadElement(scale);
+	freeQuadElement(element);
+
+	fprintf(stderr,"end of eliminate\n");
+
+	pthread_exit(NULL);
+}
+
+
+
+
+
+// a(i,j) = a(i,j) + element
+// will allocate the memory if necessary
+void incSparseQuadMatrix(SparseQuadMatrix *a,const QuadElement *element,const int row, const int col)
+{
+	const QuadElement *ptr = getSparseQuadMatrix(a,row,col);
+	if(ptr == NULL)
+	{
+		setSparseQuadMatrix(a,element,row,col);
+	}
+	else
+	{
+		QuadElement *result = createQuadElement(a->gvNum);
+		addQuadElement(result,ptr,element);
+		setSparseQuadMatrix(a,result,row,col);
+		freeQuadElement(result);
+	}
+}
+
+
+
+// a(i,j) = a(i,j) - element
+// will allocate the memory if necessary
+void decSparseQuadMatrix(SparseQuadMatrix *a,const QuadElement *element,const int row, const int col)
+{
+	const QuadElement *ptr = getSparseQuadMatrix(a,row,col);
+	QuadElement *result = createQuadElement(a->gvNum);
+	if(ptr == NULL)
+	{
+		scaleQuadElement(result,-1,element);	
+	}
+	else
+	{
+		subQuadElement(result,ptr,element);
+	}
+	setSparseQuadMatrix(a,result,row,col);
+	freeQuadElement(result);
+}
+
+
+
+// dest and src should be allocated before calling this function
+void quad2SparseQuadMatrix(SparseQuadMatrix *dest,const QuadMatrix *src)
+{
+	int i,j;
+	clearSparseQuadMatrix(dest);
+	for(i=0;i<src->row;i++)
+	{
+		for(j=0;j<src->col;j++)
+		{
+			const QuadElement *element = getPtrEntryQuadMatrix(src,i,j);
+			if( isEmptyQuadElement(element) ) continue;
+			else setSparseQuadMatrix(dest,element,i,j);
+		}
+	}
+}
+
+
+
+
+// dest and src should be allocated before calling this function
+void quad2PidSparseQuadMatrix(SparseQuadMatrix *dest,const QuadMatrix *src,const int pid)
+{
+	int i,j;
+	clearPidSparseQuadMatrix(dest,pid);
+	for(i=0;i<src->row;i++)
+	{
+		for(j=0;j<src->col;j++)
+		{
+			const QuadElement *element = getPtrEntryQuadMatrix(src,i,j);
+			if( isEmptyQuadElement(element) ) continue;
+			else setPidSparseQuadMatrix(dest,element,i,j,pid);
+		}
+	}
+}
+
+
+
+
+void delQuad2PidSparseQuadMatrix(SparseQuadMatrix *dest, QuadMatrix *src,const int pid)
+{
+	int i,j;
+	clearPidSparseQuadMatrix(dest,pid);
+	for(i=0;i<src->row;i++)
+	{
+		for(j=0;j<src->col;j++)
+		{
+			const QuadElement *element = getPtrEntryQuadMatrix(src,i,j);
+			if( isEmptyQuadElement(element) )
+			{
+				continue;
+			}
+			else
+			{
+				setPidSparseQuadMatrix(dest,element,i,j,pid);
+				delPidQuadMatrix(src,i,j,pid);
+			}
+		}
+	}
+}
+
+
+
+
+// dest and src should be allocated before calling this function
+void toDenseSparseQuadMatrix(QuadMatrix *dest, const SparseQuadMatrix *src)
+{
+	int i,j;
+	resetQuadMatrix(dest);
+	for(i=0;i<src->totalRow;i++)
+	{
+		SparseQuadElement *ptr = src->rowIndex[i]->rowLink;
+		while(ptr!=NULL)
+		{
+			const int row = ptr->row;
+			const int col = ptr->col;
+			const QuadElement *data = ptr->data;
+			setQuadMatrix(dest,data,row,col);
+			ptr = ptr->rowLink;
+		}
+	}
+}
+
+
+
+
+// dest and src should be allocated before calling this function
+void toDensePidSparseQuadMatrix(QuadMatrix *dest, const SparseQuadMatrix *src,const int pid)
+{
+	int i,j;
+	resetQuadMatrix(dest);
+	for(i=0;i<src->totalRow;i++)
+	{
+		SparseQuadElement *ptr = src->rowIndex[i]->rowLink;
+		while(ptr!=NULL)
+		{
+			const int row = ptr->row;
+			const int col = ptr->col;
+			const QuadElement *data = ptr->data;
+			setPidQuadMatrix(dest,data,row,col,pid);
+			ptr = ptr->rowLink;
+		}
+	}
+}
+
+
+
+
+
+
+void setDenseCol2SparseQuadMatrix(SparseQuadMatrix *dest, const QuadMatrix *src,const int col)
+{
+	int i,j;
+	for(i=0;i<src->row;i++)
+	{
+		const QuadElement *element = getPtrEntryQuadMatrix(src,i,0);
+		if( isEmptyQuadElement(element) ) delSparseQuadMatrix(dest,i,col);
+		else setSparseQuadMatrix(dest,element,i,col);
+	}
+}
+
+
+
+void setDenseColQuick2SparseQuadMatrix(SparseQuadMatrix *dest, const QuadMatrix *src,const int col)
+{
+	setDenseColQuick2SparseQuadMatrixPid(dest,src,col,0);
+}
+
+
+
+
+
+void setDenseColQuick2SparseQuadMatrixPid(SparseQuadMatrix *dest, const QuadMatrix *src,const int col,const int pid)
+{
+	int i,j;
+	for(i=0;i<src->row;i++)
+	{
+		const QuadElement *element = getPtrEntryQuadMatrix(src,i,0);
+		if( isEmptyQuadElement(element) ) continue;
+		else setPidSparseQuadMatrix(dest,element,i,col,pid);
+	}
+}
+
+
+
+
+
+// the boundaries row1,col1,row2,col2 are included
+void clearBlockSparseQuadMatrix(SparseQuadMatrix *dest, const int row1, const int col1, const int row2, const int col2)
+{
+	int i;
+	// del the old data in the block
+	for(i=row1;i<=row2;i++)
+	{
+		SparseQuadElement *eachRow = dest->rowIndex[i]->rowLink;
+		while(eachRow != NULL)
+		{
+			if(eachRow->col < col1) eachRow = eachRow->rowLink;
+			else if(eachRow->col > col2) break;
+			else
+			{
+				const int delRow = eachRow->row;
+				const int delCol = eachRow->col;
+				eachRow = eachRow->rowLink;
+				delSparseQuadMatrix(dest,delRow,delCol);
+			}
+		}
+	}
+}
+
+
+
+
+// the boundaries row1,col1,row2,col2 are included
+void appendBlockSparseQuadMatrix(SparseQuadMatrix *dest, const SparseQuadMatrix *src, const int row1, const int col1, const int row2, const int col2)
+{
+	if(dest == src) return;
+
+	int i;
+
+
+	// insert new data to the block
+	for(i=row1;i<=row2;i++)
+	{
+		SparseQuadElement *eachRow = src->rowIndex[i]->rowLink;
+		while(eachRow != NULL)
+		{
+			if(eachRow->col < col1) eachRow = eachRow->rowLink;
+			else if(eachRow->col > col2) break;
+			else
+			{
+				const QuadElement *data = eachRow->data;
+				const int insRow = eachRow->row;
+				const int insCol = eachRow->col;
+				setSparseQuadMatrix(dest,data,insRow,insCol);
+				eachRow = eachRow->rowLink;
+			}
+		}
+	}
+
+
+/*
+	for(i=row1;i<=row2;i++)
+	{
+		for(j=col1;j<=col2;j++)
+		{
+			const QuadElement *data = getSparseQuadMatrix(src,i,j);
+			if(data!=NULL)	setSparseQuadMatrix(dest,data,i,j);
+			else
+			{
+//				fprintf(stderr,"start to del (%d,%d)\n",i,j);
+				delSparseQuadMatrix(dest,i,j);
+//				fprintf(stderr,"del complete\n");
+			}
+		}
+	}
+*/
+}
+
+
+
+// get the m part of sparseQuadMatrix
+void mSparseQuadMatrix(SparseDoubleMatrix *dest, const SparseQuadMatrix *src)
+{
+	clearSparseDoubleMatrix(dest);
+	int i;
+	for(i=0;i<src->totalRow;i++)
+	{
+		const SparseQuadElement *ptr = src->rowIndex[i]->rowLink;
+		while(ptr!=NULL)
+		{
+			const int row = i;
+			const int col = ptr->col;
+			const double val = ptr->data->m;
+			setSparseDoubleMatrix(dest,val,row,col);
+			ptr = ptr->rowLink;
+		}
+	}
+}
+
+
+// set the m part of sparseQuadMatrix
+void setMSparseQuadMatrix(SparseQuadMatrix *dest, const SparseDoubleMatrix *src)
+{
+	clearSparseQuadMatrix(dest);
+	int i;
+	for(i=0;i<src->totalRow;i++)
+	{
+		const SparseDoubleElement *ptr = src->rowIndex[i]->rowLink;
+		while(ptr!=NULL)
+		{
+			const int row = i;
+			const int col = ptr->col;
+			const double valDouble = ptr->data;
+			QuadElement *val = createQuadElement(dest->gvNum);
+			setQuadElement(val,valDouble,0.0,NULL,NULL);
+			setSparseQuadMatrix(dest,val,row,col);
+			ptr = ptr->rowLink;
+			freeQuadElement(val);
+		}
+	}
+
+}
+
+
+
+
+// permutate 
+void permutateSparseQuadMatrix(SparseQuadMatrix *dest, const SparseQuadMatrix *pRow, const SparseQuadMatrix *pCol, const SparseQuadMatrix *src)
+{
+	SparseQuadMatrix *destTemp = createSparseQuadMatrix(dest->totalRow,dest->totalCol,dest->gvNum);
+	SparseQuadMatrix *destTemp2 = createSparseQuadMatrix(dest->totalRow,dest->totalCol,dest->gvNum);
+	int i;
+
+	// permutate row
+	for(i=0;i<pRow->totalRow;i++)
+	{
+		const int colForRowI = pRow->rowIndex[i]->rowLink->col;
+		const SparseQuadElement *ptr = src->rowIndex[colForRowI]->rowLink;
+		while(ptr!=NULL)
+		{
+			const int col = ptr->col;
+			setSparseQuadMatrix(destTemp,ptr->data,i,col);			
+			ptr = ptr->rowLink;
+		}
+	}
+
+
+	int *iperm = getMempoolSet(sizeof(int)*pCol->totalRow);
+	for(i=0;i<pCol->totalRow;i++)
+	{
+		const int col = pCol->rowIndex[i]->rowLink->col;
+		iperm[i] = col;
+	}
+
+	for(i=0;i<destTemp->totalRow;i++)
+	{
+		SparseQuadElement *ptr = destTemp->rowIndex[i]->rowLink;
+		while(ptr!=NULL)
+		{
+			const int row = i;
+			const int col = ptr->col;
+			setSparseQuadMatrix(destTemp2,ptr->data,row,iperm[col]);
+			ptr = ptr->rowLink;
+		}
+	}
+	retMempoolSet(iperm,sizeof(int)*pCol->totalRow);
+
+	copySparseQuadMatrix(dest,destTemp2);
+	freeSparseQuadMatrix(destTemp);
+	freeSparseQuadMatrix(destTemp2);
+}
+
+
+
+
+void getSubPidSparseQuadMatrix(SparseQuadMatrix *dest, const SparseQuadMatrix *src, const int ltRowSrc, const int ltColSrc, const int rbRowSrc, const int rbColSrc,const int pid)
+{
+	int i;
+
+	clearPidSparseQuadMatrix(dest,pid);
+
+	const int baseRow = ltRowSrc;
+	const int baseCol = ltColSrc;
+
+	for(i=ltRowSrc;i<=rbRowSrc;i++)
+	{
+		const SparseQuadElement *eachRow = src->rowIndex[i]->rowLink;
+		while(eachRow!=NULL)
+		{
+			if(eachRow->col < ltColSrc) eachRow = eachRow->rowLink;
+			else if(eachRow->col > rbColSrc) break;
+			else
+			{
+				const QuadElement *data = eachRow->data;
+				const int insRow = eachRow->row - baseRow;
+				const int insCol = eachRow->col - baseCol;
+				setPidSparseQuadMatrix(dest,data,insRow,insCol,pid);
+				eachRow = eachRow->rowLink;
+			}
+		}
+	}
+}
+
+
+
+
+void getSubSparseQuadMatrix(SparseQuadMatrix *dest, const SparseQuadMatrix *src, const int ltRowSrc, const int ltColSrc, const int rbRowSrc, const int rbColSrc)
+{
+	getSubPidSparseQuadMatrix(dest,src,ltRowSrc,ltColSrc,rbRowSrc,rbColSrc,0);
+}
+
+
+
+
+void mergeSparseQuadMatrix(SparseQuadMatrix *dest, const SparseQuadMatrix *src, const int destRow, const int destCol,const int ltRowDest, const int ltColDest)
+{
+	mergePidSparseQuadMatrix(dest,src,destRow,destCol,ltRowDest,ltColDest,0);
+}
+
+
+
+
+
+void mergePidSparseQuadMatrix(SparseQuadMatrix *dest, const SparseQuadMatrix *src, const int destRow, const int destCol,const int ltRowDest, const int ltColDest,const int pid)
+{
+	int i;
+	
+	const int baseRow = ltRowDest;
+	const int baseCol = ltColDest;
+
+	SparseQuadElement **rowCache = getPidMempoolSet(sizeof(SparseQuadElement *)*dest->totalRow,pid);
+	for(i=0;i<dest->totalRow;i++) rowCache[i] = NULL;
+	SparseQuadElement **colCache = getPidMempoolSet(sizeof(SparseQuadElement *)*dest->totalCol,pid);
+	for(i=0;i<dest->totalCol;i++) colCache[i] = NULL;
+
+	for(i=0;i<src->totalRow;i++)
+	{
+		const SparseQuadElement *eachRow = src->rowIndex[i]->rowLink;
+		while(eachRow!=NULL)
+		{
+			const QuadElement* data = eachRow->data;	
+			const int insRow = baseRow + eachRow->row;
+			const int insCol = baseCol + eachRow->col;
+			setFastPidSparseQuadMatrix(dest,data,insRow,insCol,&rowCache[insRow],&colCache[insCol],pid);
+			eachRow = eachRow->rowLink;
+		}
+	}
+
+	retPidMempoolSet(rowCache,sizeof(SparseQuadElement *)*dest->totalRow,pid);
+	retPidMempoolSet(colCache,sizeof(SparseQuadElement *)*dest->totalCol,pid);
+}
+
+
+
+@
+
+
+1.22
+log
+@ok version ~ new pid functions
+@
+text
+@d334 2
+d338 2
+d469 1
+a469 1
+	const SparseQuadElement *target = ptr->rowIndex[rowIndex]->rowLink;
+d485 9
+a493 2
+	if(target == NULL || target->col!=colIndex) return NULL;
+	else return target->data;
+a498 24
+SparseQuadElement *getPtrFastRowSparseQuadMatrix(const SparseQuadMatrix *ptr, const int rowIndex, const int colIndex,SparseQuadElement **baseRow)
+{
+	SparseQuadElement *target = ptr->rowIndex[rowIndex]->rowLink;
+
+	if(baseRow!=NULL)
+	{
+		if(*baseRow!=NULL)
+		{
+			if((*baseRow)->row == rowIndex && (*baseRow)->col > target->col && (*baseRow)->col <= colIndex)
+			{
+				target = *baseRow;
+			}
+		}
+	}
+
+	// set target
+	while(target != NULL)
+	{
+		if(target->col >= colIndex ) break;
+		else target = target->rowLink;
+	}
+	if(target == NULL || target->col!=colIndex) return NULL;
+	else return target;
+}
+d505 1
+a505 1
+	const SparseQuadElement *target = ptr->colIndex[colIndex]->colLink;
+d522 9
+a530 2
+	if(target == NULL || target->row != rowIndex) return NULL;
+	else return target->data;
+d830 1
+a830 17
+	if(dest == src) return;
+
+	clearSparseQuadMatrix(dest);
+	
+	int i;
+	SparseQuadElement *currentEntry;
+	SparseQuadElement *baseRow = NULL;
+	SparseQuadElement *baseCol = NULL;
+	for(i=0;i<src->totalRow;i++)
+	{
+		currentEntry = src->rowIndex[i];
+		while(currentEntry->rowLink!=NULL)
+		{
+			setFastSparseQuadMatrix(dest,currentEntry->rowLink->data,i,currentEntry->rowLink->col,&baseRow,&baseCol);
+			currentEntry = currentEntry->rowLink;
+		}
+	}
+d842 5
+a846 2
+	
+	int i;
+a847 2
+	SparseQuadElement *baseRow = NULL;
+	SparseQuadElement *baseCol = NULL;
+d853 2
+a854 1
+			setFastPidSparseQuadMatrix(dest,currentEntry->rowLink->data,i,currentEntry->rowLink->col,&baseRow,&baseCol,pid);
+d858 2
+d1209 4
+d1217 1
+a1217 1
+void identitySparseQuadMatrix(SparseQuadMatrix *a)
+d1219 2
+a1220 2
+	clearSparseQuadMatrix(a);
+	QuadElement *element = createQuadElement(a->gvNum);
+d1223 1
+a1223 1
+	for(i=0;i<a->totalRow;i++) setSparseQuadMatrix(a,element,i,i);
+d1225 1
+a1225 1
+	freeQuadElement(element);
+d1367 25
+d1614 10
+a1623 2
+	// permutate col
+	for(i=0;i<pCol->totalCol;i++)
+d1625 1
+a1625 2
+		const int rowForColI = pCol->colIndex[i]->colLink->row;
+		const SparseQuadElement *ptr = destTemp->colIndex[rowForColI]->colLink;
+d1628 4
+a1631 3
+			const int row = ptr->row;
+			setSparseQuadMatrix(destTemp2,ptr->data,row,i);
+			ptr = ptr->colLink;
+d1634 2
+a1635 1
+	
+d1683 8
+d1692 1
+a1692 1
+void mergeSparseQuadMatrix(SparseQuadMatrix *dest, const SparseQuadMatrix *src, const int destRow, const int destCol,const int ltRowDest, const int ltColDest)
+d1699 4
+a1702 2
+	time_t mergeBegin,mergeEnd;
+//	fprintf(stderr,"%d,%d\n",baseRow,baseCol);
+a1703 1
+	time(&mergeBegin);
+d1712 1
+a1712 1
+			setSparseQuadMatrix(dest,data,insRow,insCol);
+d1716 3
+a1718 2
+	time(&mergeEnd);
+//	fprintf(stderr,"merge time:%g\n",difftime(mergeEnd,mergeBegin));
+@
+
+
+1.21
+log
+@ok version ~ add new pid functions
+@
+text
+@d1624 1
+a1624 1
+void getSubSparseQuadMatrix(SparseQuadMatrix *dest, const SparseQuadMatrix *src, const int ltRowSrc, const int ltColSrc, const int rbRowSrc, const int rbColSrc)
+d1628 2
+d1645 1
+a1645 1
+				setSparseQuadMatrix(dest,data,insRow,insCol);
+d1655 9
+@
+
+
+1.20
+log
+@*** empty log message ***
+@
+text
+@d487 29
+d628 1
+a628 1
+		}
+d1361 66
+@
+
+
+1.19
+log
+@ok version ~ new pid functions
+@
+text
+@d703 1
+a703 1
+	fprintf(fp,"row:%d,col%d\n",ptr->totalRow,ptr->totalCol);
+@
+
+
+1.18
+log
+@very ok version ~ new pid functions , done linear and non-linear
+@
+text
+@d699 10
+@
+
+
+1.17
+log
+@ok version ~ new pid funcs...
+@
+text
+@d763 1
+a763 18
+	// free the memory row by row
+	int i;
+	SparseQuadElement *currentEntry;
+	SparseQuadElement *removeEntry;
+	for(i=0;i<ptr->totalRow;i++)
+	{
+		currentEntry = ptr->rowIndex[i]->rowLink;
+		while(currentEntry!=NULL)
+		{
+			removeEntry = currentEntry;
+			currentEntry = removeEntry->rowLink;
+			freeSparseQuadElement(removeEntry);
+		}
+	}
+
+	for(i=0;i<ptr->totalRow;i++) ptr->rowIndex[i]->rowLink = NULL;
+	for(i=0;i<ptr->totalCol;i++) ptr->colIndex[i]->colLink = NULL;
+	ptr->nnz = 0;
+@
+
+
+1.16
+log
+@ok version ~ new pid func..
+@
+text
+@d1086 25
+@
+
+
+1.15
+log
+@ok version ~ new pid function ...
+@
+text
+@d865 11
+a875 2
+	SparseQuadMatrix *cResult = createSparseQuadMatrix(a->totalRow,a->totalCol,a->gvNum);
+	QuadElement *entryC = createQuadElement(a->gvNum);
+d891 1
+a891 1
+				setSparseQuadMatrix(cResult,targetA,i,entryA->col);
+d897 1
+a897 1
+				setSparseQuadMatrix(cResult,targetB,i,entryB->col);
+d905 1
+a905 1
+				setSparseQuadMatrix(cResult,entryC,i,entryA->col);
+d914 1
+a914 1
+			setSparseQuadMatrix(cResult,targetA,i,entryA->col);
+d921 1
+a921 1
+			setSparseQuadMatrix(cResult,targetB,i,entryB->col);
+d925 1
+a925 1
+	copySparseQuadMatrix(c,cResult);
+d927 2
+a928 2
+	freeSparseQuadMatrix(cResult);
+	freeQuadElement(entryC);
+d933 1
+d937 11
+a947 2
+	SparseQuadMatrix *cResult = createSparseQuadMatrix(a->totalRow,a->totalCol,a->gvNum);
+	QuadElement *entryC = createQuadElement(a->gvNum);
+d963 1
+a963 1
+				setSparseQuadMatrix(cResult,targetA,i,entryA->col);
+d971 1
+a971 1
+				setSparseQuadMatrix(cResult,entryC,i,entryB->col);
+d979 1
+a979 1
+				setSparseQuadMatrix(cResult,entryC,i,entryA->col);
+d988 1
+a988 1
+			setSparseQuadMatrix(cResult,targetA,i,entryA->col);
+d997 1
+a997 1
+			setSparseQuadMatrix(cResult,entryC,i,entryB->col);
+d1001 1
+a1001 1
+	copySparseQuadMatrix(c,cResult);
+d1003 2
+a1004 2
+	freeSparseQuadMatrix(cResult);
+	freeQuadElement(entryC);
+d1009 1
+d1148 35
+d1329 9
+d1343 1
+a1343 1
+		else setSparseQuadMatrix(dest,element,i,col);
+@
+
+
+1.14
+log
+@ok version ~ some new pid functions ~~~
+@
+text
+@d638 63
+a827 1
+//			setSparseQuadMatrix(dest,currentEntry->rowLink->data,i,currentEntry->rowLink->col);
+d835 28
+@
+
+
+1.13
+log
+@ok version ~ new pid api
+@
+text
+@d373 60
+d722 27
+@
+
+
+1.12
+log
+@ok version ~ pid lu ~
+@
+text
+@d108 20
+d134 1
+a134 1
+	SparseQuadMatrix *ptr = (SparseQuadMatrix *)malloc(sizeof(SparseQuadMatrix));
+d140 2
+a141 2
+	ptr->rowIndex = (SparseQuadElement **)malloc(row*sizeof(SparseQuadElement *));
+	ptr->colIndex = (SparseQuadElement **)malloc(col*sizeof(SparseQuadElement *));
+d150 20
+d190 32
+a221 3
+	free(ptr->rowIndex);
+	free(ptr->colIndex);
+	free(ptr);
+d226 2
+d269 42
+d486 33
+a1022 228
+// a = plu
+void luSparseQuadMatrix(SparseQuadMatrix *l, SparseQuadMatrix *u,const SparseQuadMatrix *a,const int threadNum)
+{
+	if(threadNum == 1)
+	{
+		// init & alloc
+		SparseQuadMatrix *aTemp = createSparseQuadMatrix(a->totalRow,a->totalCol,a->gvNum);
+		QuadElement *scale = createQuadElement(a->gvNum);
+		QuadElement *element = createQuadElement(a->gvNum);
+//		preproceesing
+		copySparseQuadMatrix(aTemp,a);
+		identitySparseQuadMatrix(l);
+		int i,j;
+
+		SparseQuadElement *lBaseRow = NULL;
+		SparseQuadElement *lBaseCol = NULL;
+		SparseQuadElement *aTempRow = NULL;
+		SparseQuadElement *aTempCol = NULL;
+		SparseQuadElement *aTempDelRow = NULL;
+		SparseQuadElement *aTempDelCol = NULL;
+		// perform lu
+		for(i=0;i<a->totalRow-1;i++) 
+		{
+//			fprintf(stderr,"row %d\n",i);
+			const SparseQuadElement *aii = aTemp->rowIndex[i]->rowLink;
+			const SparseQuadElement *eachRow = aii->colLink;
+			while(eachRow != NULL) // update E
+			{
+				divQuadElement(scale,eachRow->data,aii->data);
+				setFastSparseQuadMatrix(l,scale,eachRow->row,i,&lBaseRow,&lBaseCol);
+
+				SparseQuadElement *inRow = aii->rowLink;
+				while(inRow != NULL)
+				{
+					mulQuadElement(element,scale,getSparseQuadMatrix(aTemp,i,inRow->col));
+					subQuadElement(element,getSparseQuadMatrix(aTemp,eachRow->row,inRow->col),element);
+					setFastSparseQuadMatrix(aTemp,element,eachRow->row,inRow->col,&aTempRow,&aTempCol);
+					inRow = inRow->rowLink;
+				}
+				const SparseQuadElement *next = eachRow->colLink;
+				delFastSparseQuadMatrix(aTemp,eachRow->row,i,&aTempDelRow,&aTempDelCol);
+				eachRow = next;
+			}
+		}
+		copySparseQuadMatrix(u,aTemp);
+
+		freeSparseQuadMatrix(aTemp);
+		freeQuadElement(scale);
+		freeQuadElement(element);
+	}
+}
+
+
+
+
+
+// a = plu
+void luPidSparseQuadMatrix(SparseQuadMatrix *l, SparseQuadMatrix *u,const SparseQuadMatrix *a,const int threadNum,const int pid)
+{
+	if(threadNum == 1)
+	{
+		// init & alloc
+		SparseQuadMatrix *aTemp = createSparseQuadMatrix(a->totalRow,a->totalCol,a->gvNum);
+		QuadElement *scale = createQuadElement(a->gvNum);
+		QuadElement *element = createQuadElement(a->gvNum);
+//		preproceesing
+		copySparseQuadMatrix(aTemp,a);
+		identitySparseQuadMatrix(l);
+		int i,j;
+
+		SparseQuadElement *lBaseRow = NULL;
+		SparseQuadElement *lBaseCol = NULL;
+		SparseQuadElement *aTempRow = NULL;
+		SparseQuadElement *aTempCol = NULL;
+		SparseQuadElement *aTempDelRow = NULL;
+		SparseQuadElement *aTempDelCol = NULL;
+		// perform lu
+		for(i=0;i<a->totalRow-1;i++) 
+		{
+//			fprintf(stderr,"row %d\n",i);
+			const SparseQuadElement *aii = aTemp->rowIndex[i]->rowLink;
+			const SparseQuadElement *eachRow = aii->colLink;
+			while(eachRow != NULL) // update E
+			{
+				divQuadElement(scale,eachRow->data,aii->data);
+				setFastSparseQuadMatrix(l,scale,eachRow->row,i,&lBaseRow,&lBaseCol);
+
+				SparseQuadElement *inRow = aii->rowLink;
+				while(inRow != NULL)
+				{
+					mulPidQuadElement(element,scale,getSparseQuadMatrix(aTemp,i,inRow->col),pid);
+					subQuadElement(element,getSparseQuadMatrix(aTemp,eachRow->row,inRow->col),element);
+					setFastSparseQuadMatrix(aTemp,element,eachRow->row,inRow->col,&aTempRow,&aTempCol);
+					inRow = inRow->rowLink;
+				}
+				const SparseQuadElement *next = eachRow->colLink;
+				delFastSparseQuadMatrix(aTemp,eachRow->row,i,&aTempDelRow,&aTempDelCol);
+				eachRow = next;
+			}
+		}
+		copySparseQuadMatrix(u,aTemp);
+
+		freeSparseQuadMatrix(aTemp);
+		freeQuadElement(scale);
+		freeQuadElement(element);
+	}
+}
+
+
+
+
+//      ax = b
+// -> plux = b
+// ->  lux = pb  , y = ux 
+// ->   ly = pb
+// solve y , then solve ux = y
+void triSolveSparseQuadMatrix(QuadMatrix *x,const SparseQuadMatrix *p,const SparseQuadMatrix *pTrans,const SparseQuadMatrix *l,const SparseQuadMatrix *u, const QuadMatrix *b)
+{
+	QuadMatrix *y = createQuadMatrix(x->row,1,x->gvNum);
+	QuadMatrix *pb = createQuadMatrix(x->row,1,x->gvNum);
+	QuadElement *sum = createQuadElement(x->gvNum);
+	QuadElement *element = createQuadElement(x->gvNum);
+	
+	int i,k;
+	SparseQuadElement *eachRow;
+	SparseQuadElement *inRow;
+	setZeroQuadElement(sum,x->gvNum);
+	mulVecSparseQuadMatrix(pb,p,b);
+	
+	// solve ly = pb
+	for(i=0;i<l->totalRow;i++)
+	{
+		resetQuadElement(sum);
+		eachRow = l->rowIndex[i]->rowLink;
+		inRow = eachRow;
+		while(inRow->rowLink != NULL)
+		{
+			const QuadElement *lij = inRow->data;
+			const QuadElement *yj = getPtrEntryQuadMatrix(y,inRow->col,0);
+			mulQuadElement(element,lij,yj);
+			addQuadElement(sum,sum,element);
+			inRow = inRow->rowLink;
+		}
+		copyQuadElement(element,getPtrEntryQuadMatrix(pb,i,0));
+		subQuadElement(element,element,sum);
+		divQuadElement(element,element,inRow->data);
+		setQuadMatrix(y,element,i,0);
+	}
+
+	// solve ux = y
+	for(i=u->totalRow-1;i>=0;i--)
+	{
+		resetQuadElement(sum);
+		eachRow = u->rowIndex[i]->rowLink;
+		inRow = eachRow->rowLink;
+		while(inRow != NULL)
+		{
+			const QuadElement *uij = inRow->data;
+			const QuadElement *xj = getPtrEntryQuadMatrix(x,inRow->col,0);
+			mulQuadElement(element,uij,xj);
+			addQuadElement(sum,sum,element);
+			inRow = inRow->rowLink;
+		}
+		copyQuadElement(element,getPtrEntryQuadMatrix(y,i,0));
+		subQuadElement(element,element,sum);
+		divQuadElement(element,element,u->rowIndex[i]->rowLink->data);
+		setQuadMatrix(x,element,i,0);
+	}
+
+	mulVecSparseQuadMatrix(x,pTrans,x);
+
+	freeQuadMatrix(y);
+	freeQuadMatrix(pb);
+	freeQuadElement(sum);
+	freeQuadElement(element);
+
+}
+
+
+
+// directly use luSparseQuadMatrix() and triSolveSparseQuadMatrix() to solve Ax = b
+void solveSparseQuadMatrix(QuadMatrix *x,const SparseQuadMatrix *a,const QuadMatrix *b, const int threadNum)
+{
+	const int nodeNum = a->totalRow;
+	const int gvNum = a->gvNum;
+	SparseQuadMatrix *p = createSparseQuadMatrix(nodeNum,nodeNum,gvNum);
+	SparseQuadMatrix *pTrans = createSparseQuadMatrix(nodeNum,nodeNum,gvNum);
+	SparseQuadMatrix *l = createSparseQuadMatrix(nodeNum,nodeNum,gvNum);
+	SparseQuadMatrix *u = createSparseQuadMatrix(nodeNum,nodeNum,gvNum);
+	SparseQuadMatrix *aRefine = createSparseQuadMatrix(nodeNum,nodeNum,gvNum);
+
+	amdSparseQuadMatrix(p,a);
+	transSparseQuadMatrix(pTrans,p);
+	mulSparseQuadMatrix(aRefine,p,a);
+	mulSparseQuadMatrix(aRefine,aRefine,pTrans);
+
+	luSparseQuadMatrix(l,u,aRefine,threadNum);
+	triSolveSparseQuadMatrix(x,p,pTrans,l,u,b);
+	freeSparseQuadMatrix(p);
+	freeSparseQuadMatrix(l);
+	freeSparseQuadMatrix(u);
+	freeSparseQuadMatrix(aRefine);
+	freeSparseQuadMatrix(pTrans);
+}
+
+
+
+
+void solveWithPermutationSparseQuadMatrix(QuadMatrix *x,const SparseQuadMatrix *p, const SparseQuadMatrix *pTrans, const SparseQuadMatrix *a, const QuadMatrix *b, const int threadNum)
+{
+	const int nodeNum = a->totalRow;
+	const int gvNum = a->gvNum;
+	SparseQuadMatrix *l = createSparseQuadMatrix(nodeNum,nodeNum,gvNum);
+	SparseQuadMatrix *u = createSparseQuadMatrix(nodeNum,nodeNum,gvNum);
+	SparseQuadMatrix *aRefine = createSparseQuadMatrix(nodeNum,nodeNum,gvNum);
+
+	mulSparseQuadMatrix(aRefine,p,a);
+	mulSparseQuadMatrix(aRefine,aRefine,pTrans);
+
+	luSparseQuadMatrix(l,u,aRefine,threadNum);
+	triSolveSparseQuadMatrix(x,p,pTrans,l,u,b);
+	freeSparseQuadMatrix(l);
+	freeSparseQuadMatrix(u);
+	freeSparseQuadMatrix(aRefine);
+}
+
+
+
+@
+
+
+1.11
+log
+@ok version ~ fast get, set, del ...
+@
+text
+@d886 44
+d931 11
+a944 1
+//		identitySparseQuadMatrix(p);
+a952 1
+
+d954 1
+a954 1
+		for(i=0;i<a->totalRow-1;i++) // permutate
+a961 2
+
+//				setSparseQuadMatrix(l,scale,eachRow->row,i);
+d967 1
+a967 1
+					mulQuadElement(element,scale,getSparseQuadMatrix(aTemp,i,inRow->col));
+a968 1
+//					setSparseQuadMatrix(aTemp,element,eachRow->row,inRow->col);
+a972 1
+//				delSparseQuadMatrix(aTemp,eachRow->row,i);
+d986 2
+@
+
+
+1.10
+log
+@ok version ~ new get fast version
+@
+text
+@d197 66
+a262 1
+const SparseQuadElement *getNewSparseQuadMatrix(const SparseQuadMatrix *ptr, const int rowIndex, const int colIndex)
+a280 11
+/*
+	SparseQuadElement *target = ptr->rowIndex[rowIndex]->rowLink;
+	// set target
+	while(target != NULL)
+	{
+		if(target->col >= colIndex ) break;
+		else target = target->rowLink;
+	}
+	if(target == NULL || target->col!=colIndex) return NULL;
+	else return target->data;
+*/
+d290 1
+a290 1
+const SparseQuadElement *getFastRowSparseQuadMatrix(const SparseQuadMatrix *ptr, const int rowIndex, const int colIndex,const SparseQuadElement *const baseRow)
+d294 1
+a294 1
+	if(baseRow!=NULL)
+d296 1
+a296 5
+		if(baseRow->row == rowIndex && baseRow->col > target->col && baseRow->col <= colIndex)
+		{
+			target = baseRow;
+		}
+		else
+d298 1
+a298 1
+//			printf("rowIndex:%d,colIndex:%d,target->row:%d,target->col:%d,baseRowFix->row:%d,baseRowFix->col:%d\n",rowIndex,colIndex,target->row,target->col,baseRowFix->row,baseRowFix->col);
+a300 3
+	else
+	{
+	}
+d309 1
+a309 1
+	else return target;
+d314 1
+a314 1
+const QuadElement *getFastColSparseQuadMatrix(const SparseQuadMatrix *ptr,const int rowIndex, const int colIndex, const QuadElement *baseCol)
+a316 1
+	const SparseQuadElement *baseColFix = (SparseQuadElement *)baseCol;
+d318 1
+a318 1
+	if(baseColFix!=NULL)
+d320 1
+a320 1
+		if(baseColFix->col == colIndex && baseColFix->row > target->row && baseColFix->col <= rowIndex)
+d322 1
+a322 1
+			target = baseColFix;
+d332 1
+d373 59
+d524 2
+d531 2
+a532 1
+			setSparseQuadMatrix(dest,currentEntry->rowLink->data,i,currentEntry->rowLink->col);
+d893 6
+d909 4
+a912 3
+			
+				setSparseQuadMatrix(l,scale,eachRow->row,i);
+	
+d918 2
+a919 1
+					setSparseQuadMatrix(aTemp,element,eachRow->row,inRow->col);
+d923 2
+a924 1
+				delSparseQuadMatrix(aTemp,eachRow->row,i);
+a933 90
+	/*
+	else
+	{
+		int i,j;
+		void *status;
+		
+		SparseQuadMatrix *aTemp = createSparseQuadMatrix(a->totalRow,a->totalCol,a->gvNum);
+
+		struct SparseLUParParallel **par = (struct SparseLUParParallel **)malloc(sizeof(struct SparseLUParParallel *)*threadNum);
+		for(j=0;j<threadNum;j++)
+		{
+			par[j] = (struct SparseLUParParallel *)malloc(sizeof(struct SparseLUParParallel));
+			par[j]->aCopy = createSparseQuadMatrix(a->totalRow,a->totalCol,a->gvNum);
+			par[j]->partialL = createSparseQuadMatrix(a->totalRow,a->totalCol,a->gvNum);
+		}
+
+		copySparseQuadMatrix(aTemp,a);
+		identitySparseQuadMatrix(l);
+		identitySparseQuadMatrix(p);
+		
+		pthread_t threads[threadNum];
+		// perform lu
+		for(i=0;i<a->totalRow-1;i++) // permutate
+		{
+			fprintf(stderr,"row %d\n",i);
+			updateSparseQuadMatrix(aTemp,p,i);
+			const SparseQuadElement *aii = aTemp->rowIndex[i]->rowLink;
+			const int nnzInColForOp = nnzInColForOpSparseQuadMatrix(aTemp,i);
+			const int nnzUntilAii = nnzUntilAiiSparseQuadMatrix(aTemp,i);
+//			dumpSparseQuadMatrix(stderr,aTemp);
+//			fprintf(stderr,"i=%d, nnzInColForOp %d, nnzUntilAii %d\n",i,nnzInColForOp,nnzUntilAii);
+			SparseQuadElement *eachRow = aii->colLink;
+//			pthread_t threads[threadNum];
+			for(j=0;j<threadNum;j++)
+			{
+				par[j]->currentRow = i;
+				
+				par[j]->rowLow = indexOfIthElementInColSparseQuadMatrix(aTemp,i,nnzUntilAii+block_low(j,threadNum,nnzInColForOp));
+				par[j]->rowHigh = indexOfIthElementInColSparseQuadMatrix(aTemp,i,nnzUntilAii+block_high(j,threadNum,nnzInColForOp));
+				
+//				copySparseQuadMatrix(par[j]->aCopy,aTemp);
+
+				clearSparseQuadMatrix(par[j]->aCopy);
+				appendBlockSparseQuadMatrix(par[j]->aCopy,aTemp,i,0,i,a->totalCol-1);
+				appendBlockSparseQuadMatrix(par[j]->aCopy,aTemp,par[j]->rowLow,0,par[j]->rowHigh,a->totalCol-1);
+
+				identitySparseQuadMatrix(par[j]->partialL);
+				fprintf(stderr,"before create\n");
+				pthread_create(&threads[j],NULL,eliminateRows,(void *)par[j]);
+				fprintf(stderr,"after create\n");
+//				fprintf(stdout,"thread %d: (low,high):(%d,%d)\n",j,par[j]->rowLow,par[j]->rowHigh);
+//				fprintf(stdout,"nnzInColForOp: %d\n", nnzInColForOp);
+			}
+		
+			for(j=0;j<threadNum;j++) pthread_join(threads[j], &status);
+	
+//			fprintf(stdout,"====================\n");
+//			dumpSparseQuadMatrix(stdout,par[0]->partialL);
+//			dumpSparseQuadMatrix(stdout,par[1]->partialL);
+			
+			for(j=0;j<threadNum;j++)
+			{
+				clearBlockSparseQuadMatrix(aTemp,par[j]->rowLow,0,par[j]->rowHigh,a->totalCol-1);
+				clearBlockSparseQuadMatrix(l,par[j]->rowLow,i,par[j]->rowHigh,i);
+			}
+			for(j=0;j<threadNum;j++)
+			{
+				appendBlockSparseQuadMatrix(aTemp,par[j]->aCopy,par[j]->rowLow,0,par[j]->rowHigh,a->totalCol-1);
+				appendBlockSparseQuadMatrix(l,par[j]->partialL,par[j]->rowLow,i,par[j]->rowHigh,i);
+			}
+//			dumpSparseQuadMatrix(stdout,l);
+		}
+//		dumpSparseQuadMatrix(stderr,aTemp);
+		copySparseQuadMatrix(u,aTemp);
+
+
+		freeSparseQuadMatrix(aTemp);
+		for(j=0;j<threadNum;j++)
+		{
+			freeSparseQuadMatrix(par[j]->partialL);
+			freeSparseQuadMatrix(par[j]->aCopy);
+			free(par[j]);
+		}
+		free(par);
+	}
+	*/
+//	dumpSparseQuadMatrix(stdout,u);
+//	dumpSparseQuadMatrix(stdout,l);
+//	exit(0);
+//	fprintf(stderr,"lu done\n");
+d1354 1
+a1354 1
+	fprintf(stderr,"merge time:%g\n",difftime(mergeEnd,mergeBegin));
+@
+
+
+1.9
+log
+@ok version ~ fast get error ~ can not write like that ...
+@
+text
+@d196 18
+d216 1
+d226 4
+d234 3
+a236 1
+const QuadElement *getFastRowSparseQuadMatrix(const SparseQuadMatrix *ptr, const int rowIndex, const int colIndex,const QuadElement *baseRow)
+a238 1
+	const SparseQuadElement *baseRowFix = (SparseQuadElement *)baseRow;
+d240 1
+a240 1
+	if(baseRowFix!=NULL)
+d242 1
+a242 1
+		if(baseRowFix->row == rowIndex && baseRowFix->col > target->col && baseRowFix->col <= colIndex)
+d244 1
+a244 2
+			target = baseRowFix;
+//			printf("useful\n");
+d262 1
+a262 1
+	else return target->data;
+@
+
+
+1.8
+log
+@*** empty log message ***
+@
+text
+@d221 1
+d223 7
+@
+
+
+1.7
+log
+@update getFastRow ... not verified
+@
+text
+@d215 1
+d218 1
+a218 1
+		if(baseRowFix->col > target->col && baseRowFix->col <= colIndex)
+a223 1
+
+d236 25
+@
+
+
+1.6
+log
+@add the merger function
+@
+text
+@d211 26
+d1253 1
+d1256 1
+d1269 2
+@
+
+
+1.5
+log
+@add the getSub function
+@
+text
+@d1216 29
+@
+
+
+1.4
+log
+@*** empty log message ***
+@
+text
+@d1189 27
+@
+
+
+1.3
+log
+@*** empty log message ***
+@
+text
+@d1123 66
+@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@a83 40
+static void sparseQuadMatrix2AmdAi(int *ai,const SparseQuadMatrix *a)
+{
+	const int totalRow = a->totalRow;
+	int i;
+	int index = 0;
+	SparseQuadElement *current;
+	for(i=0;i<totalRow;i++)
+	{
+		current = a->rowIndex[i]->rowLink;
+		while(current!=NULL)
+		{
+			ai[index] = current->col;
+			index++;
+			current = current->rowLink;
+		}
+	}
+}
+
+
+
+static void sparseQuadMatrix2AmdAp(int *ap,const SparseQuadMatrix *a)
+{
+	const int totalRow = a->totalRow;
+	int i;
+	int index = 0;
+	int numInRow = 0;
+	SparseQuadElement *current;
+	ap[0] = 0;
+	for(i=0;i<totalRow;i++)
+	{
+		current = a->rowIndex[i]->rowLink;
+		numInRow = 0;
+		while(current!=NULL)
+		{
+			numInRow++;
+			current = current->rowLink;
+		}
+		ap[i+1] = ap[i] + numInRow;
+	}	
+}
+a685 37
+void amdSparseQuadMatrix(SparseQuadMatrix *p,const SparseQuadMatrix *a)
+{
+	int *pInt = (int *)malloc(sizeof(int)*a->totalRow);
+	int *ap = (int *)malloc(sizeof(int)*a->totalRow+1);
+	int *ai = (int *)malloc(sizeof(int)*a->nnz);
+	int i;
+	QuadElement *unit = createQuadElement(a->gvNum);
+	unit->m = 1;
+
+//	dumpSparseQuadMatrix(stdout,a);
+
+	sparseQuadMatrix2AmdAi(ai,a);
+	sparseQuadMatrix2AmdAp(ap,a);
+	amd_order(a->totalRow,ap,ai,pInt,NULL,NULL);
+/*
+	for(i=0;i<a->totalCol;i++)
+	{
+		fprintf(stderr,"%d\n",pInt[i]);
+	}
+*/
+	clearSparseQuadMatrix(p);
+
+	for(i=0;i<a->totalCol;i++)
+	{
+		setSparseQuadMatrix(p,unit,pInt[i],i);
+	}
+
+	freeQuadElement(unit);
+	free(pInt);
+	free(ap);
+	free(ai);
+
+}
+
+
+
+
+d1108 14
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1182 2
+a1183 4
+
+/*
+// use biconjugate gradient stable method to solve Ax = b
+void bcgsSparseQuadMatrix(QuadMatrix *x,const SparseQuadMatrix *A,const QuadMatrix *b, const QuadMatrix *xInit)
+a1184 141
+	const int nodeNum = A->totalRow;
+	const int gvNum = A->gvNum;
+	const double threshold = 0.001; // if deltax < 0.1%, then leave
+
+	QuadMatrix *x_prev = createQuadMatrix(nodeNum,1,gvNum);
+	QuadMatrix *x_next = createQuadMatrix(nodeNum,1,gvNum);
+	QuadMatrix *r_init = createQuadMatrix(nodeNum,1,gvNum);
+	QuadMatrix *r_prev = createQuadMatrix(nodeNum,1,gvNum);
+	QuadMatrix *r_next = createQuadMatrix(nodeNum,1,gvNum);
+	QuadMatrix *v_prev = createQuadMatrix(nodeNum,1,gvNum);
+	QuadMatrix *v_next = createQuadMatrix(nodeNum,1,gvNum);
+	QuadMatrix *p_prev = createQuadMatrix(nodeNum,1,gvNum);
+	QuadMatrix *p_next = createQuadMatrix(nodeNum,1,gvNum);
+	QuadMatrix *s = createQuadMatrix(nodeNum,1,gvNum);
+	QuadMatrix *t = createQuadMatrix(nodeNum,1,gvNum);
+	
+	QuadElement *rho_prev = createQuadElement(gvNum);
+	QuadElement *rho_next = createQuadElement(gvNum);
+	QuadElement *alpha = createQuadElement(gvNum);
+	QuadElement *beta = createQuadElement(gvNum);
+	QuadElement *w_prev = createQuadElement(gvNum);
+	QuadElement *w_next = createQuadElement(gvNum);
+
+	setZeroQuadMatrix(x_prev);
+	setZeroQuadMatrix(x_next);
+	setZeroQuadMatrix(v_next);
+	setZeroQuadMatrix(p_next);
+
+
+	rho_next->m = 1.0;
+	alpha->m = 1.0;
+	beta->m = 1.0;
+	w_next->m = 1.0;
+	
+	QuadMatrix *rTemp1 = createQuadMatrix(nodeNum,1,gvNum);
+	QuadMatrix *rTemp2 = createQuadMatrix(nodeNum,1,gvNum);
+	QuadElement *betaTemp1 = createQuadElement(gvNum);
+	QuadElement *betaTemp2 = createQuadElement(gvNum);
+	QuadMatrix *pTemp1 = createQuadMatrix(nodeNum,1,gvNum);
+	QuadMatrix *pTemp2 = createQuadMatrix(nodeNum,1,gvNum);
+	QuadElement *alphaTemp = createQuadElement(gvNum);
+	QuadMatrix *sTemp = createQuadMatrix(nodeNum,1,gvNum);
+	QuadElement *wTemp1 = createQuadElement(gvNum);
+	QuadElement *wTemp2 = createQuadElement(gvNum);
+	QuadMatrix *xTemp1 = createQuadMatrix(nodeNum,1,gvNum);
+	QuadMatrix *xTemp2 = createQuadMatrix(nodeNum,1,gvNum);
+	QuadMatrix *rTemp = createQuadMatrix(nodeNum,1,gvNum);
+
+
+	mulVecSparseQuadMatrix(rTemp1,A,xInit);
+	subQuadMatrix(r_init,b,rTemp1);
+	copyQuadMatrix(r_next,r_init);
+	copyQuadMatrix(x_next,xInit);
+
+	int i;
+
+	for(i=0;i<nodeNum;i++)
+	{
+		copyQuadMatrix(x_prev,x_next);
+		copyQuadMatrix(r_prev,r_next);
+		copyQuadMatrix(v_prev,v_next);
+		copyQuadMatrix(p_prev,p_next);
+		copyQuadElement(w_prev,w_next);
+		copyQuadElement(rho_prev,rho_next);
+
+		innerQuadMatrix(rho_next,r_init,r_prev);
+
+		divQuadElement(betaTemp1,rho_next,rho_prev);
+		divQuadElement(betaTemp2,alpha,w_prev);
+		mulQuadElement(beta,betaTemp1,betaTemp2);
+
+		scaleqQuadMatrix(pTemp1,w_prev,v_prev);
+		subQuadMatrix(pTemp2,p_prev,pTemp1);
+		scaleqQuadMatrix(pTemp1,beta,pTemp2);
+		addQuadMatrix(p_next,r_prev,pTemp1,1);
+
+		mulVecSparseQuadMatrix(v_next,A,p_next);
+
+		innerQuadMatrix(alphaTemp,r_init,v_next);
+		divQuadElement(alpha,rho_next,alphaTemp);
+
+		scaleqQuadMatrix(sTemp,alpha,v_next);
+		subQuadMatrix(s,r_prev,sTemp);
+
+		mulVecSparseQuadMatrix(t,A,s);
+
+		innerQuadMatrix(wTemp1,t,s);
+		innerQuadMatrix(wTemp2,t,t);
+		divQuadElement(w_next,wTemp1,wTemp2);
+
+		scaleqQuadMatrix(xTemp1,alpha,p_next);
+		scaleqQuadMatrix(xTemp2,w_next,s);
+		addQuadMatrix(x_next,x_prev,xTemp1,1);
+		addQuadMatrix(x_next,x_next,xTemp2,1);
+
+		if(mRatioQuadMatrix(x_prev,x_next) < threshold) 
+		{
+			break;
+		}
+		else
+		{
+			scaleqQuadMatrix(rTemp,w_next,t);
+			subQuadMatrix(r_next,s,rTemp);
+		}
+	}
+	fprintf(stderr,"converge at step: %d\n",i);
+	copyQuadMatrix(x,x_next);
+
+	freeQuadMatrix(x_prev);
+	freeQuadMatrix(x_next);
+	freeQuadMatrix(r_init);
+	freeQuadMatrix(r_prev);
+	freeQuadMatrix(r_next);
+	freeQuadMatrix(v_prev);
+	freeQuadMatrix(v_next);
+	freeQuadMatrix(p_prev);
+	freeQuadMatrix(p_next);
+	freeQuadMatrix(s);
+	freeQuadMatrix(t);
+
+	freeQuadElement(rho_prev);
+	freeQuadElement(rho_next);
+	freeQuadElement(alpha);
+	freeQuadElement(beta);
+	freeQuadElement(w_prev);
+	freeQuadElement(w_next);
+
+	freeQuadMatrix(rTemp1);
+	freeQuadMatrix(rTemp2);
+	freeQuadElement(betaTemp1);
+	freeQuadElement(betaTemp2);
+	freeQuadMatrix(pTemp1);
+	freeQuadMatrix(pTemp2);
+	freeQuadElement(alphaTemp);
+	freeQuadMatrix(sTemp);
+	freeQuadElement(wTemp1);
+	freeQuadElement(wTemp2);
+	freeQuadMatrix(xTemp1);
+	freeQuadMatrix(xTemp2);
+	freeQuadMatrix(rTemp);
+
+a1185 42
+
+
+*/
+
+
+
+/*
+// abs (a-b / a)
+static double mRatioQuadMatrix(const QuadMatrix *a, const QuadMatrix *b)
+{
+	double ret = 0.0;
+	int i,j;
+	const int row = a->row;
+	const int col = a->col;
+	double aVal,bVal;
+
+//	dumpQuadMatrix(a);
+//	dumpQuadMatrix(b);
+
+//	fprintf(stderr,"before for\n");
+	for(i=0;i<row;i++)
+	{
+		for(j=0;j<col;j++)
+		{
+			const QuadElement *ptrA = getPtrEntryQuadMatrix(a,i,j);	
+			const QuadElement *ptrB = getPtrEntryQuadMatrix(b,i,j);	
+			if(ptrA == NULL) aVal = 0;
+			else aVal = ptrA->m;
+			if(ptrB == NULL) bVal = 0;
+			else bVal = ptrB->m;
+			ret = ret +  fabs((aVal-bVal) / aVal);
+//			fprintf(stderr,"a = %p b= %p \n",ptrA,ptrB);
+//			exit(0);
+		}
+	}
+
+//	fprintf(stderr,"ret = %lf\n",ret);
+	return ret;
+}
+*/
+
+
+@

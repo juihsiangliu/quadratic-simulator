@@ -1,0 +1,1008 @@
+head	1.8;
+access;
+symbols;
+locks
+	d96041:1.8; strict;
+comment	@ * @;
+
+
+1.8
+date	2010.11.23.08.40.37;	author d96041;	state Exp;
+branches;
+next	1.7;
+
+1.7
+date	2010.11.14.12.48.53;	author d96041;	state Exp;
+branches;
+next	1.6;
+
+1.6
+date	2010.11.13.07.46.03;	author d96041;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	2010.10.27.13.18.26;	author d96041;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	2010.08.28.08.42.46;	author d96041;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	2010.08.23.13.07.49;	author d96041;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2010.07.01.12.30.28;	author d96041;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2010.06.24.08.33.07;	author r97124;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.8
+log
+@ok version ~ i want to remove the "huge" feature
+use malloc in huge...
+@
+text
+@#include "mempool.h"
+
+
+static const int _2M = 2*1024*1024;
+static const int _4M = 4*1024*1024;
+static const int _8M = 8*1024*1024;
+
+
+static int int_min(const int a,const int b)
+{
+	if(a<b) return a;
+	else return b;
+}
+
+
+static int int_max(const int a,const int b)
+{
+	if(a<b) return b;
+	else return a;
+}
+
+//==================================================
+
+
+
+
+static void dumpMempool(FILE *fp,const Mempool *pool)
+{
+	fprintf(fp,"===============\n");
+	fprintf(fp,"pool name: %s\n",pool->poolName);
+	fprintf(fp,"batchNumOfBlock: %d\n",pool->batchNumOfBlock);
+	fprintf(fp,"blockSize: %d\n",pool->blockSize);
+
+	fprintf(fp,"*** freeList ***\n");
+	dumpDqueue(fp,pool->dqueue);
+}
+
+
+
+static Mempool *createMempool(const char *poolName,const int blockSize,const int numOfBlock)
+{
+	int i;
+	Mempool *pool = (Mempool *)malloc(sizeof(Mempool));
+	strcpy(pool->poolName,poolName);
+	pool->blockSize = blockSize;
+
+//	const int tmp1 = ( _2M  ) / sizeof(void *);
+//	const int tmp2 = 2 * int_max(numOfBlock,1);
+//	const int maxHeapSize = int_min(tmp1,tmp2); // 2m buffer or 2*numOfBlock  (min is 2)
+
+	const int maxHeapSize = 2*int_max(numOfBlock,1);
+
+	pool->dqueue = createDqueue(maxHeapSize);
+	pool->batchNumOfBlock = int_max(numOfBlock,1);
+
+
+/*
+	for(i=0;i< numOfBlock ;i++)
+	{
+		void *ptr = malloc(blockSize);
+		if(ptr == NULL) fprintf(stderr,"error: not enought memory\n");
+		insertTailDqueue(pool->dqueue,ptr);
+	}
+*/
+
+	pool->count = 0;
+	pthread_mutex_init(&(pool->mutex), NULL);
+
+	return pool;
+}
+
+
+
+
+static void freeMempool(Mempool *pool)
+{	
+	int i;
+	Dqueue *dqueue = pool->dqueue;
+	while(!isEmptyDqueue(dqueue))
+	{
+		void *mem = delTailDqueue(dqueue);
+		free(mem);
+	}
+	freeDqueue(dqueue);
+	pthread_mutex_destroy(&(pool->mutex));
+	free(pool);
+}
+
+
+
+
+static void clearMempool(Mempool *pool)
+{
+	pthread_mutex_lock(&(pool->mutex));
+	Dqueue *dqueue = pool->dqueue;
+	while(!isEmptyDqueue(dqueue))
+	{
+		void *mem = delTailDqueue(dqueue);
+		free(mem);
+	}
+	pthread_mutex_unlock(&(pool->mutex));
+}
+
+
+
+
+// return a mem block from pool to user 
+static void *getMempool(Mempool *pool)
+{
+	pthread_mutex_lock(&(pool->mutex));
+
+	if(isEmptyDqueue(pool->dqueue))
+	{
+		int i;
+		for(i=0;i<pool->batchNumOfBlock;i++)
+		{
+			if(!isFullDqueue(pool->dqueue))
+			{
+				void *ptr = malloc(pool->blockSize);
+				if(ptr == NULL) fprintf(stderr,"error: not enought memory\n");
+				insertTailDqueue(pool->dqueue,ptr);
+			}
+			else break;
+		}
+	}
+	void *ret = delTailDqueue(pool->dqueue);
+	pool->count++;
+
+	pthread_mutex_unlock(&(pool->mutex));
+
+	return ret;
+}
+
+
+
+static void retMempool(Mempool *pool, void *data)
+{
+	pthread_mutex_lock(&pool->mutex);
+	if(isFullDqueue(pool->dqueue))
+	{
+		void *head = delHeadDqueue(pool->dqueue);
+		free(head);
+	}
+	insertTailDqueue(pool->dqueue,data);
+	pool->count--;
+	pthread_mutex_unlock(&(pool->mutex));
+}
+
+
+// ======================================================
+
+
+static MempoolSet *createMempoolSetKernel(const int minBlockSize,const int numOfMempool,const int hugeBlockSize,const int numOfBlock)
+{
+	MempoolSet *set = (MempoolSet *)malloc(sizeof(MempoolSet));
+	set->poolSet = (Mempool **)malloc(sizeof(Mempool *)*numOfMempool);
+	int i;
+	set->minBlockSize = minBlockSize;
+	set->maxBlockSize = minBlockSize;
+	set->hugeBlockSize = hugeBlockSize;
+	set->numOfPool = numOfMempool;
+	set->lgMinBlockSize = log2(set->minBlockSize);
+
+	for(i=0;i<numOfMempool;i++)
+	{
+		char name[32];
+		int n;
+		n = sprintf(name,"normal:%d",set->maxBlockSize);
+		set->poolSet[i] = createMempool(name,set->maxBlockSize,numOfBlock);
+		set->maxBlockSize = set->maxBlockSize*2;
+	}
+	set->maxBlockSize = set->maxBlockSize/2;
+
+	set->huge = createMempool("huge",set->hugeBlockSize,0);
+
+	return set;
+}
+
+
+
+
+static MempoolSet *createMempoolSetKernelNew(const int minBlockSize,const int numOfMempool,const int hugeBlockSize,const int *const numOfBlockList)
+{
+	MempoolSet *set = (MempoolSet *)malloc(sizeof(MempoolSet));
+	set->poolSet = (Mempool **)malloc(sizeof(Mempool *)*numOfMempool);
+	int i;
+	set->minBlockSize = minBlockSize;
+	set->maxBlockSize = minBlockSize;
+	set->hugeBlockSize = hugeBlockSize;
+	set->numOfPool = numOfMempool;
+	set->lgMinBlockSize = log2(set->minBlockSize);
+
+	for(i=0;i<numOfMempool;i++)
+	{
+		char name[32];
+		int n;
+		n = sprintf(name,"normal:%d",set->maxBlockSize);
+		set->poolSet[i] = createMempool(name,set->maxBlockSize,numOfBlockList[i]);
+		set->maxBlockSize = set->maxBlockSize*2;
+	}
+	set->maxBlockSize = set->maxBlockSize/2;
+
+	set->huge = createMempool("huge",set->hugeBlockSize,8);
+
+	return set;
+}
+
+
+
+
+
+static void freeMempoolSetKernel(MempoolSet *ptr)
+{
+	int i;
+	for(i=0;i<ptr->numOfPool;i++) freeMempool(ptr->poolSet[i]);
+	free(ptr->poolSet);
+	freeMempool(ptr->huge);
+	free(ptr);
+}
+
+
+
+static void clearMempoolSetKernel(MempoolSet *ptr)
+{
+	int i;
+	for(i=0;i<ptr->numOfPool;i++) clearMempool(ptr->poolSet[i]);
+	clearMempool(ptr->huge);
+}
+
+
+
+
+
+static void *getMempoolSetKernel(MempoolSet *ptr,const int blockSize)
+{
+	void *ret = NULL;
+	if(blockSize > ptr->maxBlockSize && blockSize <= ptr->hugeBlockSize)
+	{
+		ret = getMempool(ptr->huge);
+	}
+	else if(blockSize <= ptr->maxBlockSize)
+	{
+		const double lgBlockSize = log2(blockSize);
+		int index = ceil(lgBlockSize - ptr->lgMinBlockSize);
+		if(index < 0) index = 0;
+		ret = getMempool(ptr->poolSet[index]);
+	}
+	else
+	{
+		fprintf(stderr,"Error in get MempoolSet (Huge) \n");
+		fprintf(stderr,"request size:%d , hugeSize:%d\n",blockSize,ptr->hugeBlockSize);
+		exit(0);
+		// error
+	}
+
+//	memset(ret,0,sizeof(blockSize));
+	return ret;
+}
+
+
+
+
+
+static void retMempoolSetKernel(MempoolSet *ptr,void *data, const int blockSize)
+{
+	if(blockSize > ptr->maxBlockSize && blockSize <= ptr->hugeBlockSize)
+	{
+		retMempool(ptr->huge,data);
+	}
+	else
+	{
+		const double lgBlockSize = log2(blockSize);
+		int index = ceil(lgBlockSize - ptr->lgMinBlockSize);
+		if(index < 0) index = 0;
+		retMempool(ptr->poolSet[index],data);
+	}
+}
+
+
+
+
+static void dumpMempoolSetKernel(FILE *fp, const MempoolSet *set)
+{
+	int i;
+	for(i=0;i<set->numOfPool;i++) dumpMempool(fp,set->poolSet[i]);
+	dumpMempool(fp,set->huge);
+}
+
+
+
+//=============================================================
+
+
+
+
+
+void createMempoolSet(const int minBlockSize,const int numOfMempool,const int hugeBlockSize,const int *const numOfBlockList,const int poolListSize)
+{
+	int i;
+	_poolList = (MempoolSet **)malloc(sizeof(MempoolSet *)*poolListSize);
+	for(i=0;i<poolListSize;i++)
+	{
+		_poolList[i] = createMempoolSetKernelNew(minBlockSize,numOfMempool,hugeBlockSize,numOfBlockList);
+	}
+	_pool = _poolList[0];
+	_poolListSize = poolListSize;
+}
+
+
+
+
+void freeMempoolSet(void)
+{
+	int i;
+	for(i=0;i<_poolListSize;i++)
+	{
+		freeMempoolSetKernel(_poolList[i]);
+	}
+	free(_poolList);
+}
+
+
+
+void clearPidMempoolSet(const int pid)
+{
+	clearMempoolSetKernel(_poolList[pid%_poolListSize]);
+}
+
+
+
+
+void *getMempoolSet(const int blockSize)
+{
+	void *ptr;
+	ptr =  getMempoolSetKernel(_pool,blockSize);
+	return ptr;
+}
+
+
+
+
+void *getPidMempoolSet(const int blockSize,const int pid)
+{
+	void *ptr;
+	ptr =  getMempoolSetKernel(_poolList[pid%_poolListSize],blockSize);
+	return ptr;
+}
+
+
+
+void retMempoolSet(void *data, const int blockSize)
+{
+	retMempoolSetKernel(_pool,data,blockSize);
+}
+
+
+
+
+void retPidMempoolSet(void *data, const int blockSize,const int pid)
+{
+	retMempoolSetKernel(_poolList[pid%_poolListSize],data,blockSize);
+}
+
+
+
+void dumpMempoolSet(FILE *fp)
+{
+	dumpMempoolSetKernel(fp,_pool);
+}
+
+
+void usageMempoolSet(FILE *fp)
+{
+	int j;
+
+//	fprintf(stderr,"pool list size:%d\n",_poolListSize);
+	for(j=0;j<_poolListSize;j++)
+	{
+		int i;
+		fprintf(fp,"poolListIndex: %d\n",j);
+		for(i=0;i<_poolList[j]->numOfPool;i++)
+		{
+			fprintf(fp,"pool:%2d count:%d\n",i,_poolList[j]->poolSet[i]->count);
+		}
+/*
+		fprintf(fp,"\n================================\n");
+		fprintf(fp,"memory usage stats\n");
+		const int MB = 1024*1024;
+		int i;
+		int total = 0;
+		for(i=0;i<_poolList[j]->numOfPool;i++)
+		{
+			const int val = _poolList[j]->poolSet[i]->batchNumOfBlock * ((float)_pool->poolSet[i]->blockSize/MB);
+			total += val;
+			fprintf(fp,"memPool %d byte: %dMB\n",_poolList[j]->poolSet[i]->blockSize,val);
+		}
+
+		const int hugeVal = _poolList[j]->huge->batchNumOfBlock * (_poolList[j]->huge->blockSize/MB);
+		total += hugeVal;
+		fprintf(fp,"memPool huge %d byte: %dMB\n",_poolList[j]->hugeBlockSize,hugeVal);
+		fprintf(fp,"total memPool usage: %dMB\n",total);
+		fprintf(fp,"================================\n");
+*/
+	}
+}
+
+
+
+
+
+/*
+const int num = 1024*1024;
+void *ptr;
+
+void *alloc(void *par)
+{
+	fprintf(stderr,"enter to alloc\n");
+	int i;
+	ptr = NULL;
+
+	fprintf(stderr,"enter to alloc\n");
+	while(1)
+	{
+		if(ptr == NULL)
+		{
+			ptr = getPidMempoolSet(1024*1024*1024,1);
+			fprintf(stderr,"alloc\n");
+		}
+	}
+	pthread_exit(0);
+}
+
+void *dealloc(void *par)
+{
+	int i;
+
+	fprintf(stderr,"enter to dealloc\n");
+	while(1)
+	{
+		if(ptr !=NULL) 
+		{
+			retPidMempoolSet(ptr,1024*1024*1024,1);
+			ptr = NULL;
+			fprintf(stderr,"dealloc\n");
+		}
+	}
+
+	pthread_exit(0);
+}
+
+
+int main(void)
+{
+	int list[17] = {512,512,512,8,8,8,8,8,8,8,8,8,8,8,0,0,0};
+	createMempoolSet(16,17,1.5*1024*1024*1024,list,2); // 0 is used for "main thread", threadNum+1 is used for "extra-root thread"
+
+	pthread_t pid[2];
+	pthread_create(&pid[0],NULL,alloc,NULL);
+	pthread_create(&pid[1],NULL,dealloc,NULL);
+		
+	pthread_join(pid[0],NULL);
+	pthread_join(pid[1],NULL);
+	
+
+	freeMempoolSet();
+	return 0;
+}
+
+*/
+@
+
+
+1.7
+log
+@ok version, use new dqueue structure
+@
+text
+@d56 2
+d64 1
+a384 1
+		
+@
+
+
+1.6
+log
+@*** empty log message ***
+@
+text
+@d15 7
+d31 1
+a31 1
+	fprintf(fp,"maxNumOfBlock: %d\n",pool->maxNumOfBlock);
+d47 6
+a52 3
+	const int tmp1 = ( _2M  ) / sizeof(void *);
+	const int tmp2 = 2 * numOfBlock;
+	const int maxHeapSize = int_min(tmp1,tmp2);
+d54 1
+a54 1
+	pool->maxNumOfBlock = int_min(numOfBlock,maxHeapSize);
+d56 1
+a56 1
+	for(i=0;i< pool->maxNumOfBlock-1 ;i++)
+d63 1
+d76 1
+a76 1
+	while(dqueue->size > 0)
+d93 1
+a93 1
+	while(dqueue->size > 0)
+d112 1
+a112 1
+		for(i=0;i<pool->maxNumOfBlock-1;i++)
+d124 1
+d142 1
+d171 1
+a171 1
+	set->huge = createMempool("huge",set->hugeBlockSize,8);
+d373 1
+a373 1
+	fprintf(stderr,"pool list size:%d\n",_poolListSize);
+d376 8
+d391 1
+a391 1
+			const int val = _poolList[j]->poolSet[i]->maxNumOfBlock * ((float)_pool->poolSet[i]->blockSize/MB);
+d396 1
+a396 1
+		const int hugeVal = _poolList[j]->huge->maxNumOfBlock * (_poolList[j]->huge->blockSize/MB);
+d401 1
+d407 2
+d410 40
+d452 2
+a453 10
+	Mempool *pool = createMempool("4 byte pool",4,8);
+	dumpMempool(stdout,pool);
+	void *ptr = getMempool(pool);
+	printf("address: %p\n",ptr);
+	dumpMempool(stdout,pool);
+	void *ptr2 = malloc(4);
+	retMempool(pool,ptr2);
+	dumpMempool(stdout,pool);
+	retMempool(pool,ptr);
+	dumpMempool(stdout,pool);
+d455 10
+a464 1
+	freeMempool(pool);
+d466 1
+@
+
+
+1.5
+log
+@ok version ~ use heap structure
+@
+text
+@d4 1
+d6 1
+a17 74
+static void *deleteFromHeap(Mempool *pool)
+{
+	int parent, child;
+	void *item;
+	void *temp;
+
+	// if heap is empty
+	if(pool->heapSize == 0)
+	{
+		fprintf(stderr,"heap %d is empty\n",pool->blockSize);
+		return NULL;
+	}
+
+	// save value of the element with the highest key
+	
+	item = pool->freeList[1];
+	temp = pool->freeList[ pool->heapSize-- ];  // the last one
+
+	parent = 1;
+	child = 2;
+	while(child <= pool->heapSize)
+	{
+		// find the larger child of the current parent
+		if( (child < pool->heapSize) && ( (unsigned long)(pool->freeList[child]) < (unsigned long)(pool->freeList[child+1]) ))
+		{
+			child++;
+		}
+
+		if( ((unsigned long)temp) >= ( (unsigned long)(pool->freeList[child]))) break;
+
+		pool->freeList[parent] = pool->freeList[child];
+		parent = child;
+		child *= 2;
+	}
+	pool->freeList[parent] = temp;
+	return item; 
+}
+
+
+
+
+static void insertToHeap(Mempool *pool, void *data)
+{
+	int i;
+
+	if( pool->heapSize == pool->maxHeapSize)
+	{
+		// heap is full
+		if( (unsigned long)data > (unsigned long)pool->freeList[ pool->heapSize ] )
+		{
+			free( pool->freeList[ pool->heapSize ]);
+			pool->heapSize --;
+			insertToHeap(pool,data);
+		}
+		else
+		{
+			free(data);
+		}
+		return;
+	}
+
+	i = ++pool->heapSize;
+	while( (i!=1) &&  ((unsigned long)data > (unsigned long)(pool->freeList[i/2])) )
+	{
+		pool->freeList[i] = pool->freeList[i/2];
+		i/=2;
+	}
+	pool->freeList[i] = data;
+}
+
+
+
+
+//==================================================
+a26 1
+	int i;
+d28 1
+a28 4
+	for(i=1;i<=pool->heapSize;i++)
+	{
+		fprintf(fp,"%d: %p\n",i,pool->freeList[i]);
+	}
+a37 1
+	pool->maxNumOfBlock = numOfBlock;
+d40 5
+a44 7
+//	pool->freeList = (void **)malloc( _4M );
+	const int tmp1 = (( _4M  ) / sizeof(void *)) - 1;
+	const int tmp2 = 8 * numOfBlock;
+	pool->maxHeapSize = int_min(tmp1,tmp2);
+	pool->freeList = (void **)malloc( (pool->maxHeapSize+1)*sizeof(void *) );
+	pool->heapSize = 0;
+
+d46 1
+a46 1
+	for(i=0;i<numOfBlock;i++)
+d49 2
+a50 1
+		insertToHeap(pool,ptr);
+d64 2
+a65 1
+	for(i=0;i<pool->heapSize;i++)
+d67 2
+a68 1
+		free(pool->freeList[i]);
+d70 1
+d78 15
+d98 1
+a98 3
+	void *ret = deleteFromHeap(pool);
+
+	if(ret == NULL) // heap is empty
+d101 9
+a109 4
+		for(i=0;i<pool->maxNumOfBlock;i++)
+		{		
+			void *ptr = malloc(pool->blockSize);
+			insertToHeap(pool,ptr);
+a110 1
+		ret = deleteFromHeap(pool);
+d112 1
+d124 6
+a129 1
+	insertToHeap(pool,data);
+d207 10
+d308 7
+@
+
+
+1.4
+log
+@ok version ~ new mempool createing api
+@
+text
+@d4 1
+d6 2
+a7 1
+static Memblock *createMemblock(const int blockSize)
+d9 2
+a10 4
+	Memblock *ptr = (Memblock *)malloc(sizeof(Memblock));
+	ptr->data = malloc(blockSize);
+	ptr->next = NULL;
+	return ptr;
+d13 2
+d16 1
+a16 1
+static void freeMemblock(Memblock *ptr)
+d18 6
+a23 1
+	if(ptr!=NULL)
+d25 2
+a26 2
+		free(ptr->data);
+		free(ptr);
+d28 24
+d56 2
+a57 1
+static void dumpMemblock(FILE *fp,const Memblock *ptr)
+d59 25
+a83 4
+	fprintf(fp,"----------\n");
+	fprintf(fp,"address: %p , ",ptr);
+	fprintf(fp,"data: %p , ",ptr->data);
+	fprintf(fp,"next: %p\n",ptr->next);
+d87 6
+a92 2
+// allocate new mem block to topFreeList
+static void addMemblock(Mempool *pool)
+d94 11
+a104 4
+	pool->numOfUnused++;
+	Memblock *newBlock = createMemblock(pool->blockSize);
+	newBlock->next = pool->topFreeList;
+	pool->topFreeList = newBlock;
+a107 2
+//==================================================
+
+d116 15
+a130 3
+	pool->numOfUnused = 0;
+	pool->topFreeList = NULL;
+	pool->topUsedList = NULL;
+a132 1
+	for(i=0;i<pool->maxNumOfBlock;i++) addMemblock(pool);
+d138 1
+d141 2
+a142 3
+	Memblock *current = pool->topFreeList;
+	Memblock *del;
+	while(current!=NULL) 
+d144 1
+a144 3
+		del = current;
+		current = current->next;
+		freeMemblock(del);
+a145 13
+
+	if(pool->topUsedList!=NULL)
+	{
+		fprintf(stderr,"[Warrning] Mempool: some memory leak when free mempool - %s\n",pool->poolName);
+		current = pool->topUsedList;
+		while(current!=NULL)
+		{
+			del = current;
+			current = current->next;
+			free(del);
+		}
+	}
+
+d151 2
+d158 1
+d160 1
+a160 1
+	if(pool->numOfUnused == 0)
+a161 1
+		fprintf(stderr,"[Log] Mempool: %s is re-allocate more memory.\n",pool->poolName);
+d163 6
+a168 2
+		for(i=0;i<pool->maxNumOfBlock;i++) addMemblock(pool);
+		pool->maxNumOfBlock = pool->maxNumOfBlock *2;	
+a170 13
+	pool->numOfUnused--;
+	
+	// remove frame from freeList
+	Memblock *ptr = pool->topFreeList;
+	pool->topFreeList = pool->topFreeList->next;
+	void *ret = ptr->data;
+
+	// add the frame to usedList
+	ptr->next = pool->topUsedList;
+	pool->topUsedList = ptr;
+	
+//	memset(ret,0,pool->blockSize);
+	
+a177 7
+
+
+
+
+
+
+// add the unused memblock to freeList and remove a frame from usedList
+d181 1
+a181 19
+
+	pool->numOfUnused++;
+
+	// get a frame from usedList
+	Memblock *frame = pool->topUsedList;
+	
+	if(frame == NULL)
+	{
+		fprintf(stderr,"error here, poolSize = %d\n",pool->blockSize);
+		exit(0);
+	}
+
+	pool->topUsedList = frame->next;
+	frame->data = data;
+
+	// add this frame to freeList
+	frame->next = pool->topFreeList;
+	pool->topFreeList = frame;
+
+a185 28
+
+static void dumpMempool(FILE *fp,const Mempool *pool)
+{
+	fprintf(fp,"===============\n");
+	fprintf(fp,"pool name: %s\n",pool->poolName);
+	fprintf(fp,"maxNumOfBlock: %d\n",pool->maxNumOfBlock);
+	fprintf(fp,"blockSize: %d\n",pool->blockSize);
+	fprintf(fp,"numOfUnused: %d\n",pool->numOfUnused);
+
+	fprintf(fp,"*** freeList ***\n");
+	const Memblock *current = pool->topFreeList;
+	while(current!=NULL) 
+	{
+		dumpMemblock(fp,current);
+		current = current->next;
+	}
+	fprintf(fp,"*** usedList ***\n");
+	fprintf(fp,"(the entry 'data' is not important here\n");
+	current = pool->topUsedList;
+	while(current!=NULL) 
+	{
+		dumpMemblock(fp,current);
+		current = current->next;
+	}
+}
+
+
+
+a217 1
+
+a247 1
+
+d259 1
+a319 2
+static pthread_mutex_t mempoolset_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+d323 1
+a323 15
+void createMempoolSet(const int minBlockSize,const int numOfMempool,const int hugeBlockSize,const int numOfBlock,const int poolListSize)
+{	
+	int i;
+	_poolList = (MempoolSet **)malloc(sizeof(MempoolSet *)*poolListSize);
+	for(i=0;i<poolListSize;i++)
+	{
+		_poolList[i] = createMempoolSetKernel(minBlockSize,numOfMempool,hugeBlockSize,numOfBlock);
+	}
+	_pool = _poolList[0];
+	_poolListSize = poolListSize;
+}
+
+
+
+void createMempoolSetNew(const int minBlockSize,const int numOfMempool,const int hugeBlockSize,const int *const numOfBlockList,const int poolListSize)
+a353 1
+//	pthread_mutex_lock(&mempoolset_mutex);
+a354 1
+//	pthread_mutex_unlock(&mempoolset_mutex);
+d418 19
+@
+
+
+1.3
+log
+@ok version ~ for parallel version different pool for different thread
+@
+text
+@a211 1
+//	set->huge = createMempool("huge",set->hugeBlockSize,1+numOfBlock/10);
+d220 32
+d342 15
+d414 23
+a436 17
+	fprintf(fp,"\n================================\n");
+	fprintf(fp,"memory usage stats\n");
+	const int MB = 1024*1024;
+	int i;
+	int total = 0;
+	for(i=0;i<_pool->numOfPool;i++)
+	{
+		const int val = _pool->poolSet[i]->maxNumOfBlock * ((float)_pool->poolSet[i]->blockSize/MB);
+		total += val;
+		fprintf(fp,"memPool %d byte: %dMB\n",_pool->poolSet[i]->blockSize,val);
+	}
+
+	const int hugeVal = _pool->huge->maxNumOfBlock * (_pool->huge->blockSize/MB);
+	total += hugeVal;
+	fprintf(fp,"memPool huge %d byte: %dMB\n",_pool->hugeBlockSize,hugeVal);
+	fprintf(fp,"total memPool usage: %dMB\n",total);
+	fprintf(fp,"================================\n");
+@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@d127 6
+d295 12
+a306 3
+void createMempoolSet(const int minBlockSize,const int numOfMempool,const int hugeBlockSize,const int numOfBlock)
+{
+	_pool = createMempoolSetKernel(minBlockSize,numOfMempool,hugeBlockSize,numOfBlock);
+d309 2
+d313 6
+a318 1
+	freeMempoolSetKernel(_pool);
+d321 3
+d334 11
+a346 1
+//	pthread_mutex_lock(&mempoolset_mutex);
+a347 1
+//	pthread_mutex_unlock(&mempoolset_mutex);
+d351 9
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d325 2
+d341 1
+@

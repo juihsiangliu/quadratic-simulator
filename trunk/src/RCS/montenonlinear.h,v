@@ -1,0 +1,57 @@
+head	1.2;
+access;
+symbols;
+locks; strict;
+comment	@ * @;
+
+
+1.2
+date	2010.11.14.12.54.27;	author d96041;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2010.06.24.09.04.14;	author r97124;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@#ifndef MONTENONLINEAR_H
+#define MONTENONLINEAR_H
+
+#include <gsl/gsl_vector.h>
+#include <gsl/gsl_matrix.h>
+#include <gsl/gsl_blas.h>
+#include <gsl/gsl_linalg.h>
+#include <gsl/gsl_permutation.h>
+
+#include "transfernetlist.h"
+#include "mymatrix.h"
+#include "mempool.h"
+#include "sparsegvarient_monte.h"
+#include "sparsedoublematrix.h"
+#include "solvesparsedoublematrix.h"
+
+void monteNonlinearSimulation(const MonteNetlist *netlist,double *result,const int threadNum,const int dumpNodeIndex);
+
+
+#endif
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d15 1
+@

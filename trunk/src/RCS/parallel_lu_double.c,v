@@ -1,0 +1,2048 @@
+head	1.16;
+access;
+symbols;
+locks
+	d96041:1.16; strict;
+comment	@ * @;
+
+
+1.16
+date	2010.11.24.13.17.04;	author d96041;	state Exp;
+branches;
+next	1.15;
+
+1.15
+date	2010.11.14.12.48.53;	author d96041;	state Exp;
+branches;
+next	1.14;
+
+1.14
+date	2010.07.17.09.04.42;	author d96041;	state Exp;
+branches;
+next	1.13;
+
+1.13
+date	2010.07.04.07.37.08;	author d96041;	state Exp;
+branches;
+next	1.12;
+
+1.12
+date	2010.07.03.10.00.09;	author d96041;	state Exp;
+branches;
+next	1.11;
+
+1.11
+date	2010.07.03.08.56.40;	author d96041;	state Exp;
+branches;
+next	1.10;
+
+1.10
+date	2010.07.02.13.35.39;	author d96041;	state Exp;
+branches;
+next	1.9;
+
+1.9
+date	2010.07.02.10.49.24;	author d96041;	state Exp;
+branches;
+next	1.8;
+
+1.8
+date	2010.07.02.09.56.21;	author d96041;	state Exp;
+branches;
+next	1.7;
+
+1.7
+date	2010.07.02.09.40.37;	author d96041;	state Exp;
+branches;
+next	1.6;
+
+1.6
+date	2010.07.02.06.59.54;	author d96041;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	2010.07.01.12.30.28;	author d96041;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	2010.06.28.12.54.28;	author r97124;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	2010.06.24.11.55.02;	author r97124;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2010.06.24.09.04.09;	author r97124;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2010.06.24.08.20.48;	author r97124;	state Exp;
+branches;
+next	;
+
+
+desc
+@.
+@
+
+
+1.16
+log
+@ok version ~ try to optimize l
+@
+text
+@#include "parallel_lu_double.h"
+
+
+static int flagEachNode[17]; // one based
+// the node[i] is ready to be processed
+
+static int freeALU_flag[16];
+
+
+
+static pthread_mutex_t donelist_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// assume the # of lead of tree node is 8
+static ParallelDoneListDouble *createDoneList(ALUDouble **alu, const ParallelETree *tree, const SparseDoubleMatrix *a)
+{
+	ParallelDoneListDouble *ptr = getMempoolSet(sizeof(ParallelDoneListDouble));
+
+	// the order used for checking in setNode()
+	ptr->orderList[0] = 8;
+	ptr->orderList[1] = 9;
+	ptr->orderList[2] = 4;
+	ptr->orderList[3] = 10;
+	ptr->orderList[4] = 11;
+	ptr->orderList[5] = 5;
+	ptr->orderList[6] = 2;
+	ptr->orderList[7] = 12;
+	ptr->orderList[8] = 13;
+	ptr->orderList[9] = 6;
+	ptr->orderList[10] = 14;
+	ptr->orderList[11] = 15;
+	ptr->orderList[12] = 7;
+	ptr->orderList[13] = 3;
+	ptr->orderList[14] = 1;
+
+	memset(ptr->done,0,sizeof(int)*16);
+	memset(ptr->eachNodeCurrentDone,0,sizeof(int)*16);
+
+	ptr->alu = alu;
+	ptr->tree = tree;
+	ptr->a = a;
+	return ptr;
+}
+
+
+
+static void freeDoneList(ParallelDoneListDouble *ptr)
+{
+	retMempoolSet(ptr,sizeof(ParallelDoneListDouble));
+}
+
+
+
+
+static int checkNextParallelDoneList(ParallelDoneListDouble *ptr,const int current)
+{
+	int nextIndex = ptr->orderList[current+1];
+	return ptr->done[nextIndex];
+}
+
+
+
+
+static void set_1_sort_ParallelDoneList(ParallelDoneListDouble *ptr,ToDoList *todoList,const int index)
+{
+	pthread_mutex_lock(&donelist_mutex);
+	ptr->done[index] = 1;
+
+	if(index%2 == 1) // index is in the right
+	{
+		if(ptr->done[index-1] == 1) // left is complete
+		{
+			sortParentsToHeadToDoList(todoList,index);
+		}
+	}
+	else
+	{
+		sortParentsToHeadToDoList(todoList,index);
+	}
+	pthread_mutex_unlock(&donelist_mutex);
+}
+
+
+
+
+
+static int isCompleteParallelDoneList(ParallelDoneListDouble *doneList)
+{
+	pthread_mutex_lock(&donelist_mutex);
+	int ret = 1;
+	int i;
+	for(i=1;i<16;i++)
+	{
+		if(doneList->done[i] == 0)
+		{
+			ret = 0;
+			break;
+		}
+	}
+	pthread_mutex_unlock(&donelist_mutex);
+	return ret;
+}
+
+// =================================================
+
+
+static ParallelLUDoubleShareData *createParallelLUDoubleShareData(ParallelDoneListDouble *doneList, ToDoList *todolist, const int pid, const int N,const int rootCurrentBegin,const int currentEnd,pthread_mutex_t *mutex, pthread_cond_t *cond)
+{
+	ParallelLUDoubleShareData *ptr = getMempoolSet(sizeof(ParallelLUDoubleShareData));
+
+	ptr->doneList = doneList;
+	ptr->todolist = todolist;
+	ptr->pid = pid;
+	ptr->N = N;
+	ptr->rootCurrentBegin = rootCurrentBegin;
+	ptr->currentEnd = currentEnd;
+	ptr->mutex = mutex;
+	ptr->cond = cond;
+
+	return ptr;
+}
+
+
+
+
+static void freeParallelLUDoubleShareData(ParallelLUDoubleShareData *ptr)
+{
+	retMempoolSet(ptr,sizeof(ParallelLUDoubleShareData));
+}
+
+
+
+
+// =================================================
+
+
+
+static ALUDouble **createALUList(const ParallelETree *tree,const int totalRow,const int threadNum)
+{
+	int i;
+	ALUDouble **aluList = getMempoolSet(sizeof(ALUDouble *)*tree->size);
+	memset(aluList,0,sizeof(ALUDouble *)*tree->size);
+	for(i=0;i<tree->size;i++)
+	{
+		if(tree->node[i] == NULL)
+		{
+			continue;
+		}
+		else
+		{
+			aluList[i] = getPidMempoolSet(sizeof(ALUDouble),i);
+			int aRow = tree->node[i]->rowEnd - tree->node[i]->rowBegin + 1; // the row of cross node
+			int aCol;
+			fprintf(stderr,"i=%d aRow=%d\n",i,aRow);
+			if(tree->node[i]->type == cross)
+			{
+				const int leftIndex = 2*i;
+				const int rightIndex = 2*i + 1;
+				const int aRowNew = aRow + (tree->node[i]->doneRowEnd - tree->node[i]->doneRowBegin +1);
+				if(i%2==0) // left node
+				{
+					int parentIndex = GSL_MAX(1,i/2);
+					if( parentIndex == 1) // it is already root
+					{
+						aCol = totalRow;
+					}
+					else
+					{
+						aCol = aluList[parentIndex]->a->totalCol;
+					}
+				}
+				else // right node
+				{
+					aCol = totalRow - tree->node[i]->doneRowBegin;
+				}
+
+				aluList[i]->a = createPidSparseDoubleMatrix(aRowNew,aCol,i);
+				aluList[i]->l = createPidSparseDoubleMatrix(aRowNew,aRowNew,i);
+				aluList[i]->u = createPidSparseDoubleMatrix(aRow,aCol,i);
+			}
+			else if(tree->node[i]->type == lu)
+			{
+				if(i%2 == 0) // left node
+				{
+					const int rootIndex = i/2;
+					aCol = totalRow - tree->node[i]->rowBegin;
+				}
+				else
+				{
+					aRow = tree->node[i]->rowEnd - tree->node[i]->rowBegin + 1;
+					const int rootIndex = i/2;
+					const int leftIndex = i-1;
+					const int leftRow = tree->node[leftIndex]->rowEnd - tree->node[leftIndex]->rowBegin + 1;
+					const int rootCol = tree->node[rootIndex]->rowEnd - tree->node[rootIndex]->doneRowBegin + 1;
+					aCol = totalRow - tree->node[i]->rowBegin;
+				}
+				
+				aluList[i]->a = createPidSparseDoubleMatrix(aRow,aCol,i);
+				aluList[i]->l = createPidSparseDoubleMatrix(aRow,aRow,i);
+				aluList[i]->u = createPidSparseDoubleMatrix(aRow,aCol,i);
+			}
+			else
+			{
+//				fprintf(stderr,"in ALU list: undefine\n");
+				exit(0);
+			}
+
+//			fprintf(stderr,"i:%d, rowBegin:%d, rowEnd:%d, aRow:%d, aCol:%d\n",i,tree->node[i]->rowBegin,tree->node[i]->rowEnd,aRow,aCol);
+		}
+	}
+	return aluList;
+}
+
+
+
+
+
+static void freePidALU(ALUDouble *alu,const int pid)
+{
+	if(alu!=NULL)
+	{
+		if(alu->a!=NULL) freePidSparseDoubleMatrix(alu->a,pid);
+		if(alu->l!=NULL) freePidSparseDoubleMatrix(alu->l,pid);
+		if(alu->u!=NULL) freePidSparseDoubleMatrix(alu->u,pid);
+		retPidMempoolSet(alu,sizeof(ALUDouble),pid);
+	}
+}
+
+
+// =================================================
+
+
+static void *threadLU(void *par)
+{
+	time_t t1,t2;
+	ParallelLUDoubleShareData *ptr = (ParallelLUDoubleShareData *)par;
+	const int treeNodeID = ptr->N;	
+	ALUDouble **alu = ptr->doneList->alu;
+
+	flagEachNode[treeNodeID] = 1;
+	pthread_cond_wait(ptr->cond,ptr->mutex);
+
+	fprintf(stderr,"lu begin: %d\n",treeNodeID);
+	time(&t1);
+	const int pid = ptr->pid;
+	const int ltRowSrc = ptr->doneList->tree->node[treeNodeID]->rowBegin;
+	const int ltColSrc = ltRowSrc;
+	const int rbRowSrc = ptr->doneList->tree->node[treeNodeID]->rowEnd;
+	const int rbColSrc = ltColSrc + alu[treeNodeID]->u->totalCol -1;
+
+	getPidSubSparseDoubleMatrix(alu[treeNodeID]->a,ptr->doneList->a,ltRowSrc,ltColSrc,rbRowSrc,rbColSrc,pid);
+	
+	luPidSparseDoubleMatrix(alu[treeNodeID]->l,alu[treeNodeID]->u,alu[treeNodeID]->a,pid);
+	time(&t2);
+	fprintf(stderr,"lu %d time:%g\n",treeNodeID,difftime(t2,t1));
+
+	clearPidMempoolSet(pid);
+
+	set_1_sort_ParallelDoneList(ptr->doneList,ptr->todolist,treeNodeID);
+	decActiveThread();
+}
+
+
+
+//====================================================================
+
+
+static int isAllAncestorsDone(ParallelDoneListDouble *doneList, const int currentFinishNode)
+{
+	 int ret = 1;
+	 int current = currentFinishNode;
+	 while(current>1)
+	 {
+	 	if(doneList->done[current]!=1)
+		{
+			ret = 0;
+			break;
+		}
+	 	current = current/2;
+	 }
+	 return ret;
+}
+
+
+
+static int indexInOrderList(ParallelDoneListDouble *doneList, const int key)
+{
+	int i;
+	int index = -1;
+	for(i=0;i<15;i++)
+	{
+		if(key == doneList->orderList[i])
+		{
+			index = i;
+		}
+	}
+	return index;
+}
+
+
+
+
+static int isAllAncestorsPartialDone(ParallelDoneListDouble *doneList,const int currentFinishNode)
+{
+	int ret = 1;
+	int current = currentFinishNode;
+	int baseIndex = indexInOrderList(doneList,currentFinishNode);
+	while(current>0)
+	{
+		int targetIndex = indexInOrderList(doneList,doneList->eachNodeCurrentDone[current]);
+//		printf("current:%d , currentFinishNode:%d\n",current,currentFinishNode);
+		if(targetIndex < baseIndex)
+		{
+			ret = 0;
+			break;
+		}
+		current = current/2;
+	}
+//	printf("ret=%d\n",ret);
+	return ret;
+}
+
+
+
+
+//static int freeALU_flag[16] = {0};
+
+static void freeUnNecessaryALU(ParallelDoneListDouble *doneList, const int currentFinishNode)
+{
+//	if(currentFinishNode > 7) return;
+
+	int i = 0;
+	int current = doneList->orderList[i];
+	while(1)
+	{
+		int parent = current/2;
+		if(freeALU_flag[current]!=1 && doneList->done[parent]==1 && isAllAncestorsPartialDone(doneList,parent)) // not free yet
+		{
+//			freePidALU(doneList->alu[current],current);
+			clearPidMempoolSet(current);
+			freeALU_flag[current] = 1;
+			fprintf(stderr,"free alu current:%d\n",current);
+		}
+
+
+		if(current == currentFinishNode)
+		{
+			break;
+		}
+		else
+		{
+			i++;
+			current = doneList->orderList[i];	
+		}
+	}
+	
+}
+
+
+
+
+static void freeExcept1_2and3(ParallelDoneListDouble *doneList)
+{
+	int i;
+	for(i=4;i<doneList->tree->size;i++)
+	{
+		if(freeALU_flag[i]!=1)
+		{
+//			freePidALU(doneList->alu[i],i);
+			clearPidMempoolSet(i);
+			freeALU_flag[i] = 1;
+		}
+	}
+}
+
+
+//====================================================================
+
+
+// get the "full U matrix under (include) node N in the ALU list tree
+static SparseDoubleMatrix * getPartialU(const int N, ParallelDoneListDouble *doneList,const int pid)
+{
+	if(N>7)
+	{
+		const int row = doneList->alu[N]->u->totalRow;
+		const int col = doneList->alu[N]->u->totalCol;
+		SparseDoubleMatrix *ret = createPidSparseDoubleMatrix(row,col,pid);
+		copyPidSparseDoubleMatrix(ret,doneList->alu[N]->u,pid);
+		return ret;
+	}
+	else
+	{
+		// recursively get the result from L
+		// recursively get the result from R
+		// get the result from current
+		// merge, free and return
+		const int L = 2*N;
+		const int R = 2*N + 1;
+		
+		// L part
+		SparseDoubleMatrix *l_sub = getPartialU(L,doneList,pid);
+		const int l_sub_row = l_sub->totalRow;
+		const int l_sub_col = l_sub->totalCol;
+		// R part
+		SparseDoubleMatrix *r_sub = getPartialU(R,doneList,pid);
+		const int r_sub_row = r_sub->totalRow;
+		const int r_sub_col = r_sub->totalCol;
+		// N part		
+		const int n_sub_row = doneList->alu[N]->u->totalRow;
+		const int n_sub_col = doneList->alu[N]->u->totalCol;
+		SparseDoubleMatrix *n_sub = doneList->alu[N]->u;
+		
+		SparseDoubleMatrix *ret = createPidSparseDoubleMatrix(l_sub_row+r_sub_row+n_sub_row,n_sub_col,pid);
+		mergePidSparseDoubleMatrix(ret,l_sub,ret->totalRow,ret->totalCol,0,0,pid);
+		freePidSparseDoubleMatrix(l_sub,pid);
+		mergePidSparseDoubleMatrix(ret,r_sub,ret->totalRow,ret->totalCol,l_sub_row,l_sub_row,pid);
+		freePidSparseDoubleMatrix(r_sub,pid);
+		mergePidSparseDoubleMatrix(ret,n_sub,ret->totalRow,ret->totalCol,l_sub_row+r_sub_row,0,pid);
+		return ret;
+	}
+}
+
+
+
+
+//====================================================================
+
+
+static void *setNode(void *par)
+{
+	int i,j;
+	time_t t1,t2,t3;
+	time(&t1);
+	ParallelLUDoubleShareData *ptr = (ParallelLUDoubleShareData *)par;
+	ParallelDoneListDouble *doneList = ptr->doneList;
+	ToDoList *todolist = ptr->todolist;
+
+	flagEachNode[ptr->N] = 1;
+	pthread_cond_wait(ptr->cond,ptr->mutex);
+//	fprintf(stderr,"setNode begin: %d\n",ptr->N);
+
+	const int N = ptr->N;
+	const int L = 2*N;
+	const int R = L+1;
+	const int rootCurrentBegin = ptr->rootCurrentBegin;
+	const int currentEnd = ptr->currentEnd;;
+	const int pid = ptr->pid;
+
+	const int rowLink = doneList->tree->node[N]->rowEnd - doneList->tree->node[N]->rowBegin +1;
+	const int colLink = doneList->alu[N]->u->totalCol;
+	const int rowCrossBegin = doneList->tree->node[N]->rowBegin;
+	const int rowCrossEnd = doneList->tree->node[N]->rowEnd;
+	const int currentDoneRowBegin = doneList->tree->node[N]->doneRowBegin;
+	
+	SparseDoubleMatrix *l_link = createPidSparseDoubleMatrix(rowLink,doneList->alu[N]->l->totalCol,pid);
+	SparseDoubleMatrix *u_link = doneList->alu[N]->u;
+	getPidSubSparseDoubleMatrix(u_link,doneList->a,rowCrossBegin,currentDoneRowBegin,rowCrossEnd,doneList->a->totalCol-1,pid);
+
+	SparseDoubleElement **l_link_row_cache = getPidMempoolSet(sizeof(SparseDoubleElement *)*l_link->totalRow,pid);
+	SparseDoubleElement **l_link_col_cache = getPidMempoolSet(sizeof(SparseDoubleElement *)*l_link->totalCol,pid);
+	SparseDoubleElement **u_link_row_cache = getPidMempoolSet(sizeof(SparseDoubleElement *)*u_link->totalRow,pid);
+	SparseDoubleElement **u_link_col_cache = getPidMempoolSet(sizeof(SparseDoubleElement *)*u_link->totalCol,pid);
+	SparseDoubleElement **del_row_cache = getPidMempoolSet(sizeof(SparseDoubleElement *)*u_link->totalRow,pid);
+	SparseDoubleElement **del_col_cache = getPidMempoolSet(sizeof(SparseDoubleElement *)*u_link->totalCol,pid);
+	for(i=0;i<l_link->totalRow;i++) l_link_row_cache[i] = NULL;
+	for(i=0;i<l_link->totalCol;i++) l_link_col_cache[i] = NULL;
+	for(i=0;i<u_link->totalRow;i++) u_link_row_cache[i] = NULL;
+	for(i=0;i<u_link->totalCol;i++) u_link_col_cache[i] = NULL;
+	for(i=0;i<u_link->totalRow;i++) del_row_cache[i] = NULL;
+	for(i=0;i<u_link->totalCol;i++) del_col_cache[i] = NULL;
+
+	int rootCurrent = rootCurrentBegin;
+	int current = -1;
+	int base = 0;
+	while(current != currentEnd)
+	{
+		if(checkNextParallelDoneList(doneList,rootCurrent) == 1)
+		{
+			rootCurrent++;
+			current = doneList->orderList[rootCurrent];
+//			fprintf(stderr,"setNode %d process node %d\n",N,current);
+			const int left = current*2;
+			const int right = left+1;
+			int offset; // how many rows of the cross term or the lu term
+			SparseDoubleMatrix *partial_u;
+			if(current > 7)
+			{
+				offset = doneList->alu[current]->u->totalRow;
+				partial_u = doneList->alu[current]->u;
+			}
+			else
+			{
+				const int leftRow = doneList->alu[left]->a->totalRow;
+				const int rightRow = doneList->alu[right]->a->totalRow;
+				offset = doneList->alu[current]->u->totalRow;
+				SparseDoubleMatrix *uTemp = doneList->alu[current]->u;
+				partial_u = createPidSparseDoubleMatrix(uTemp->totalRow,doneList->a->totalCol-base,pid);
+				fprintf(stderr,"size of partial U - row:%d, col:%d, nnz:%d\n",partial_u->totalRow,partial_u->totalCol,partial_u->nnz);
+				getPidSubSparseDoubleMatrix(partial_u,uTemp,0 , leftRow+rightRow,uTemp->totalRow-1,uTemp->totalCol-1,pid);
+			}
+
+
+			int i,j;
+			double scale = 0.0;
+			double newLinkU = 0.0;
+			double scaledPartialUData = 0.0;
+			for(i=0;i<partial_u->totalRow;i++) // sweep partial_u row by row
+			{
+				SparseDoubleElement *linkUCache1 = NULL;
+				for(j=0;j<u_link->totalRow;j++) // sweep u_link row by row
+				{
+					const SparseDoubleElement *partial_u_ptr = partial_u->rowIndex[i]->rowLink;
+					if(partial_u_ptr == NULL)
+					{
+						printf(" ------- WTF!!!!!! -----------\n");
+					}
+					scale = getFastColSparseDoubleMatrix(u_link,j,base+i,&linkUCache1)/partial_u_ptr->data;
+					if(scale == 0.0)
+					{
+						delFastPidSparseDoubleMatrix(u_link,j,base+i,&del_row_cache[j],&del_col_cache[base+i],pid);
+						continue;
+					}
+					setFastPidSparseDoubleMatrix(l_link,scale,j,base+partial_u_ptr->col,&l_link_row_cache[j],&l_link_col_cache[partial_u_ptr->col],pid);
+					
+					SparseDoubleElement *linkUCache2 = NULL;
+					while(partial_u_ptr!=NULL) // sweep each element in partial row i
+					{
+						const int row = j;
+						const int col = base + partial_u_ptr->col;
+						const double data = partial_u_ptr->data;
+						double linkU = getFastRowSparseDoubleMatrix(u_link,row,col,&linkUCache2);
+						scaledPartialUData = scale * data;
+						newLinkU = linkU - scaledPartialUData;
+						setFastPidSparseDoubleMatrix(u_link,newLinkU,row,col,&u_link_row_cache[row],&u_link_col_cache[col],pid);
+
+						partial_u_ptr = partial_u_ptr->rowLink;
+					}
+					delFastPidSparseDoubleMatrix(u_link,j,base + i,&del_row_cache[j],&del_col_cache[base+i],pid);
+				}
+			}
+
+			
+			base = base + offset;
+			if(current <=7)
+			{
+				freePidSparseDoubleMatrix(partial_u,pid);
+			}
+			doneList->eachNodeCurrentDone[N] = current;
+//			printf("%d - currentDone:%d\n",N,ptr->currentDone);
+			if(N==1)
+			{
+//				freeUnNecessaryALU(doneList,current);
+			}
+		}
+		else
+		{
+//			fprintf(stderr,"node %d is going to sleep\n",N);
+			decActiveThread();
+			flagEachNode[N] = 1;
+			pushBackToDoList(todolist,N);
+
+			pthread_cond_wait(ptr->cond,ptr->mutex);
+//			fprintf(stderr,"node %d is continue to work\n",N);
+			time(&t1);
+		}
+	}
+
+
+	const int l_l_row = doneList->alu[L]->l->totalRow;
+	const int l_u_row = doneList->alu[L]->u->totalRow;
+	const int r_l_row = doneList->alu[R]->l->totalRow;
+	const int r_u_row = doneList->alu[R]->u->totalRow;
+//	if(N==1) freeExcept1_2and3(doneList);
+
+	mergePidSparseDoubleMatrix(doneList->alu[N]->l,doneList->alu[L]->l,doneList->alu[N]->l->totalRow,doneList->alu[N]->l->totalCol,0,0,N);
+	mergePidSparseDoubleMatrix(doneList->alu[N]->l,doneList->alu[R]->l,doneList->alu[N]->l->totalRow,doneList->alu[N]->l->totalCol,l_l_row,l_l_row,N);
+	if(N==1)
+	{
+//		freePidALU(doneList->alu[2],2);
+//		freePidALU(doneList->alu[3],3);
+//		clearPidMempoolSet(2);
+//		clearPidMempoolSet(3);
+	}
+
+	time(&t2);
+//	printf("set node %d skew time:%g\n",N,difftime(t2,t1));
+//	fprintf(stderr,"node %d enter the final stage\n",N);
+
+	double scale = 0.0;
+	double newLinkU = 0.0;
+	double scaledPartialUData = 0.0;
+	for(i=0;i<u_link->totalRow;i++) // for each row in link (to be pivot row)
+	{
+		SparseDoubleElement *linkUCache1 = NULL;
+		for(j=i+1;j<u_link->totalRow;j++) // for each row under the pivot row
+		{
+			const SparseDoubleElement *pivotRowPtr = u_link->rowIndex[i]->rowLink;
+			scale = getFastColSparseDoubleMatrix(u_link,j,base+i,&linkUCache1) / pivotRowPtr->data;
+			if(scale == 0.0)
+			{
+				delFastPidSparseDoubleMatrix(u_link,j,base + i,&del_row_cache[j],&del_col_cache[base+i],pid);
+				continue;
+			}
+			setFastPidSparseDoubleMatrix(l_link,scale,j,pivotRowPtr->col,&l_link_row_cache[j],&l_link_col_cache[pivotRowPtr->col],pid);
+
+			SparseDoubleElement *linkUCache2 = NULL;
+			while(pivotRowPtr!=NULL) // for each col in pivot row
+			{
+				const int row = j;
+				const int col = pivotRowPtr->col;
+				const double data = pivotRowPtr->data;
+				double linkU = getFastRowSparseDoubleMatrix(u_link,row,col,&linkUCache2);
+				scaledPartialUData = scale * data;
+				newLinkU = linkU - scaledPartialUData;
+				setFastPidSparseDoubleMatrix(u_link,newLinkU,row,col,&u_link_row_cache[row],&u_link_col_cache[col],pid);
+
+				pivotRowPtr = pivotRowPtr->rowLink;
+			}
+			delFastPidSparseDoubleMatrix(u_link,j,base + i,&del_row_cache[j],&del_col_cache[base+i],pid);
+		}
+	}
+
+	retPidMempoolSet(l_link_row_cache,sizeof(SparseDoubleElement *)*l_link->totalRow,pid);
+	retPidMempoolSet(l_link_col_cache,sizeof(SparseDoubleElement *)*l_link->totalCol,pid);
+	retPidMempoolSet(u_link_row_cache,sizeof(SparseDoubleElement *)*u_link->totalRow,pid);
+	retPidMempoolSet(u_link_col_cache,sizeof(SparseDoubleElement *)*u_link->totalCol,pid);
+	retPidMempoolSet(del_row_cache,sizeof(SparseDoubleElement *)*u_link->totalRow,pid);
+	retPidMempoolSet(del_col_cache,sizeof(SparseDoubleElement *)*u_link->totalCol,pid);
+
+	// ====================================================================
+	for(i=0;i<l_link->totalRow;i++)
+	{
+		const double ele = 1.0;
+		const int row = i;
+		const int col = l_l_row + r_l_row + i;
+		setPidSparseDoubleMatrix(l_link,ele,row,col,pid);
+	}
+
+	
+	mergePidSparseDoubleMatrix(doneList->alu[N]->l,l_link,doneList->alu[N]->l->totalRow,doneList->alu[N]->l->totalCol,l_l_row+r_l_row,0,N);
+	freePidSparseDoubleMatrix(l_link,pid);
+
+	
+	// ====================================================================
+	time(&t3);
+//	printf("node %d final time: %g\n",N,difftime(t3,t2));
+			
+	set_1_sort_ParallelDoneList(doneList,ptr->todolist,N);
+	decActiveThread();
+	clearPidMempoolSet(pid);
+	doneList->eachNodeCurrentDone[N] = N;
+	pthread_exit(0);
+}
+
+
+
+// =================================================
+
+
+static void threadHandlerNew(void *par)
+{
+	struct ThreadHandlerParDouble *thread_handle_ptr = par;
+
+	ParallelLUDoubleShareData **list = thread_handle_ptr->list;
+	ParallelDoneListDouble *doneList = list[0]->doneList;
+	ToDoList *todolist = list[0]->todolist; 
+	const int threadNum = thread_handle_ptr->threadNum;
+
+//	dumpToDoList(stdout,todolist);
+	initActiveThread();
+	while(!isCompleteParallelDoneList(doneList))
+	{
+		while(getActiveThread() < threadNum)
+		{
+			const int indexInToDoList = getFirstToDoList(todolist);
+			if(indexInToDoList == -1) // already empty
+			{
+				if(isCompleteParallelDoneList(doneList))
+				{
+					break;
+				}
+				else
+				{
+					sleep(1);
+				}
+			}
+			else
+			{
+				safeWaitFlagMatrix(flagEachNode,indexInToDoList);
+//				fprintf(stderr,"wake up node %d\n",indexInToDoList);	
+				incActiveThread();
+//				dumpToDoList(stderr,todolist);
+				pthread_cond_signal(list[indexInToDoList-1]->cond);
+			}
+		}
+		usleep(500000);
+//		usleep(100000);
+	}
+}
+
+
+
+
+
+//=====================================================================
+
+/*
+static void *setNodeDense(void *par)
+{
+	int i,j,k;
+	time_t t1,t2,t3;
+	time(&t1);
+	ParallelLUDoubleShareData *ptr = (ParallelLUDoubleShareData *)par;
+	ParallelDoneListDouble *doneList = ptr->doneList;
+	ToDoList *todolist = ptr->todolist;
+
+	flagEachNode[ptr->N] = 1;
+	pthread_cond_wait(ptr->cond,ptr->mutex);
+	fprintf(stderr,"setNode begin: %d\n",ptr->N);
+
+	const int N = ptr->N;
+	const int L = 2*N;
+	const int R = L+1;
+	const int rootCurrentBegin = ptr->rootCurrentBegin;
+	const int currentEnd = ptr->currentEnd;;
+	const int pid = ptr->pid;
+
+	const int rowLink = doneList->tree->node[N]->rowEnd - doneList->tree->node[N]->rowBegin +1;
+	const int colLink = doneList->alu[N]->u->totalCol;
+	const int rowCrossBegin = doneList->tree->node[N]->rowBegin;
+	const int rowCrossEnd = doneList->tree->node[N]->rowEnd;
+	const int currentDoneRowBegin = doneList->tree->node[N]->doneRowBegin;
+	
+	SparseDoubleMatrix *l_link = createPidSparseDoubleMatrix(rowLink,doneList->alu[N]->l->totalCol,pid);
+	SparseDoubleMatrix *u_link = createPidSparseDoubleMatrix(rowLink,colLink,pid);
+	getPidSubSparseDoubleMatrix(u_link,doneList->a,rowCrossBegin,currentDoneRowBegin,rowCrossEnd,doneList->a->totalCol-1,pid);
+	
+	const int l_link_dense_row = rowLink;
+	const int l_link_dense_col = doneList->alu[N]->l->totalCol;
+	fprintf(stderr,"allocate dense in %d before, size = %d\n",N,sizeof(double)*l_link_dense_row*l_link_dense_col);
+	double *l_link_dense = getPidMempoolSet(sizeof(double)*l_link_dense_row*l_link_dense_col,pid);
+	memset(l_link_dense,0,sizeof(double)*l_link_dense_row*l_link_dense_col);
+	fprintf(stderr,"allocate dense in %d sucessful\n",N);
+	
+	const int u_link_dense_row = rowLink;
+	const int u_link_dense_col = colLink;
+	double *u_link_dense = getPidMempoolSet(sizeof(double)*u_link_dense_row*u_link_dense_col,pid);
+	memset(u_link_dense,0,sizeof(double)*u_link_dense_row*u_link_dense_col);
+
+	sparse2DenseDoubleMatrix(l_link_dense,l_link);
+	clearPidSparseDoubleMatrix(l_link,pid);
+	sparse2DenseDoubleMatrix(u_link_dense,u_link);
+	clearPidSparseDoubleMatrix(u_link,pid);
+
+	int rootCurrent = rootCurrentBegin;
+	int current = -1;
+	int base = 0;
+	while(current != currentEnd)
+	{
+		if(checkNextParallelDoneList(doneList,rootCurrent) == 1)
+		{
+			rootCurrent++;
+			current = doneList->orderList[rootCurrent];
+//			printf("setNode %d process node %d\n",N,current);
+			const int left = current*2;
+			const int right = left+1;
+			int offset; // how many rows of the cross term or the lu term
+			SparseDoubleMatrix *partial_u;
+			if(current > 7)
+			{
+				offset = doneList->alu[current]->u->totalRow;
+				partial_u = doneList->alu[current]->u;
+			}
+			else
+			{
+				const int leftRow = doneList->alu[left]->u->totalRow;
+				const int rightRow = doneList->alu[right]->u->totalRow;
+				offset = doneList->alu[current]->u->totalRow - leftRow - rightRow;
+				const int aTotal = doneList->a->totalCol;
+				const SparseDoubleMatrix *const uTemp = doneList->alu[current]->u;
+				partial_u = createPidSparseDoubleMatrix(uTemp->totalRow-leftRow-rightRow,doneList->a->totalCol-base,pid);
+				getPidSubSparseDoubleMatrix(partial_u,uTemp,leftRow+rightRow, leftRow+rightRow,uTemp->totalRow-1,uTemp->totalCol-1,pid);
+			}
+
+			int i,j;
+			double scale = 0.0;
+			double newLinkU = 0.0;
+			double scaledPartialUData = 0.0;
+			for(i=0;i<partial_u->totalRow;i++) // sweep partial_u row by row
+			{
+				for(j=0;j<u_link_dense_row;j++) // sweep u_link_dense row by row
+				{
+					const SparseDoubleElement *partial_u_ptr = partial_u->rowIndex[i]->rowLink;
+					assert(partial_u_ptr!=NULL);
+					scale = getMyMatrix(u_link_dense,u_link_dense_row,u_link_dense_col,j,base+i) / partial_u_ptr->data;
+					if(scale==0)
+					{
+						setMyMatrix(u_link_dense,0,u_link_dense_row,u_link_dense_col,j,base+i);
+						continue;
+					}
+					setMyMatrix(l_link_dense,scale,l_link_dense_row,l_link_dense_col,j,base+partial_u_ptr->col);
+					while(partial_u_ptr!=NULL) // sweep each element in partial row i
+					{
+						const int row = j;
+						const int col = base + partial_u_ptr->col;
+						const double data = partial_u_ptr->data;
+						const double linkU = getMyMatrix(u_link_dense,u_link_dense_row,u_link_dense_col,row,col);
+						scaledPartialUData = scale * data;
+						newLinkU = linkU - scaledPartialUData;
+						setMyMatrix(u_link_dense,newLinkU,u_link_dense_row,u_link_dense_col,row,col);
+
+						partial_u_ptr = partial_u_ptr->rowLink;
+					}
+					setMyMatrix(u_link_dense,0,u_link_dense_row,u_link_dense_col,j,base+i);
+				}
+			}
+			
+			base = base + offset;
+			if(current <=7)
+			{
+				freePidSparseDoubleMatrix(partial_u,pid);
+			}
+			doneList->eachNodeCurrentDone[N] = current;
+			if(N==1)
+			{
+				freeUnNecessaryALU(doneList,current);
+			}
+		}
+		else
+		{
+			fprintf(stderr,"node %d is going to sleep\n",N);
+			decActiveThread();
+			flagEachNode[N] = 1;
+			pushBackToDoList(todolist,N);
+
+			pthread_cond_wait(ptr->cond,ptr->mutex);
+			fprintf(stderr,"node %d is continue to work\n",N);
+			time(&t1);
+		}
+	}
+
+	if(N==1) freeExcept1_2and3(doneList);
+
+	time(&t2);
+//	printf("set node %d skew time:%g\n",N,difftime(t2,t1));
+	fprintf(stderr,"node %d enter the final stage\n",N);
+
+	double scale = 0.0;
+	double newLinkU = 0.0;
+	double scaledPartialUData = 0.0;
+	for(i=0;i<u_link_dense_row;i++) // for each row in link (to be pivot row)
+	{
+		double *u_link_i = &u_link_dense[i*u_link_dense_col];
+		const double pivot = u_link_i[base+i];
+		for(j=i+1;j<u_link_dense_row;j++) // for each row under the pivot row
+		{
+			double *l_link_j = &l_link_dense[j*l_link_dense_col];
+			double *u_link_j = &u_link_dense[j*u_link_dense_col];
+			const double eachRowHeadData = u_link_j[base+i];
+			assert(pivot != 0);
+			scale = eachRowHeadData / pivot;
+			if(scale == 0)
+			{
+				u_link_j[base+i] = 0;
+				continue;
+			}
+			l_link_j[base+i] = scale;
+			for(k=base;k<u_link_dense_col;k++)
+			{
+				const double data1 = u_link_i[k];
+				const double data2 = u_link_j[k];
+				scaledPartialUData = scale *data1;
+				newLinkU = data2 - scaledPartialUData;
+				u_link_j[k] = newLinkU;
+			}
+			u_link_j[base+i] = 0;
+		}
+	}
+	time_t begin,end;
+
+	time(&begin);
+	dense2PidSparseDoubleMatrix(l_link,l_link_dense,pid);
+	dense2PidSparseDoubleMatrix(u_link,u_link_dense,pid);
+	retPidMempoolSet(l_link_dense,sizeof(double)*l_link_dense_row*l_link_dense_col,pid);
+	retPidMempoolSet(u_link_dense,sizeof(double)*u_link_dense_row*u_link_dense_col,pid);
+	time(&end);
+//	printf("sparse to dense time: %g\n",difftime(end,begin));
+
+	// ====================================================================
+	for(i=0;i<l_link->totalRow;i++)
+	{
+		const double element = 1.0;
+		const int row = i;
+		const int col = doneList->alu[L]->l->totalRow + doneList->alu[R]->l->totalRow + i;
+		setPidSparseDoubleMatrix(l_link,element,row,col,pid);
+	}
+
+	time(&begin);
+//	pthread_mutex_lock(&setnode_merge_mutex);
+	mergePidSparseDoubleMatrix(doneList->alu[N]->l,doneList->alu[L]->l,doneList->alu[N]->l->totalRow,doneList->alu[N]->l->totalCol,0,0,N);
+	mergePidSparseDoubleMatrix(doneList->alu[N]->l,doneList->alu[R]->l,doneList->alu[N]->l->totalRow,doneList->alu[N]->l->totalCol,doneList->alu[L]->l->totalRow,doneList->alu[L]->l->totalRow,N);
+	mergePidSparseDoubleMatrix(doneList->alu[N]->l,l_link,doneList->alu[N]->l->totalRow,doneList->alu[N]->l->totalCol,doneList->alu[L]->l->totalRow+doneList->alu[R]->l->totalRow,0,N);
+//	pthread_mutex_unlock(&setnode_merge_mutex);
+	freePidSparseDoubleMatrix(l_link,pid);
+
+//	pthread_mutex_lock(&setnode_merge_mutex);
+	mergePidSparseDoubleMatrix(doneList->alu[N]->u,doneList->alu[L]->u,doneList->alu[N]->u->totalRow,doneList->alu[N]->u->totalCol,0,0,N);
+	mergePidSparseDoubleMatrix(doneList->alu[N]->u,doneList->alu[R]->u,doneList->alu[N]->u->totalRow,doneList->alu[N]->u->totalCol,doneList->alu[L]->u->totalRow,doneList->alu[L]->u->totalRow,N);
+	mergePidSparseDoubleMatrix(doneList->alu[N]->u,u_link,doneList->alu[N]->u->totalRow,doneList->alu[N]->u->totalCol,doneList->alu[L]->u->totalRow+doneList->alu[R]->u->totalRow,0,N);
+//	pthread_mutex_unlock(&setnode_merge_mutex);
+	freePidSparseDoubleMatrix(u_link,pid);
+	time(&end);
+//	printf("merge time: %g\n",difftime(end,begin));
+	
+	if(N==1)
+	{
+		freePidALU(doneList->alu[2],2);
+		freePidALU(doneList->alu[3],3);
+		clearPidMempoolSet(2);
+		clearPidMempoolSet(3);
+	}
+	// ====================================================================
+
+	time(&t3);
+//	printf("node %d final time: %g\n",N,difftime(t3,t2));
+			
+	set_1_sort_ParallelDoneList(doneList,ptr->todolist,N);
+	decActiveThread();
+
+	doneList->eachNodeCurrentDone[N] = N;
+	pthread_exit(0);
+}
+*/
+
+
+
+// =================================================
+
+
+
+static void assembleU(SparseDoubleMatrix *u, ParallelDoneListDouble *ptr,const int orderListSize)
+{
+	clearSparseDoubleMatrix(u);
+	const int uRow = u->totalRow;
+	const int uCol = u->totalCol;
+
+	ALUDouble **aluList = ptr->alu;
+	int i;
+	int baseRow = 0;
+	for(i=0;i<orderListSize;i++)
+	{
+		fprintf(stderr,"i=%d\t",i);
+		const int order = ptr->orderList[i];
+		const SparseDoubleMatrix *partialU = aluList[order]->u;
+		int baseCol = uCol - partialU->totalCol;
+		fprintf(stderr,"baseCol=%d\n",baseCol);
+		mergeSparseDoubleMatrix(u,partialU,uRow,uCol,baseRow,baseCol);
+		baseRow += partialU->totalRow;
+	}
+	
+}
+
+
+
+void parallelLUDouble(SparseDoubleMatrix *l,SparseDoubleMatrix *u, ParallelETree *tree, const SparseDoubleMatrix *a, const int threadNum)
+{
+	// pre-processing
+	int i;
+	int status;
+	memset(flagEachNode,0,sizeof(int)*17);
+//	for(i=0;i<16;i++) printf("%d ",freeALU_flag[i]);
+//	printf("\n");
+	memset(freeALU_flag,0,sizeof(int)*16);
+
+	getDoneRowInfoNew(tree);
+	
+	ALUDouble **aluList = createALUList(tree,a->totalRow,threadNum);
+	ParallelDoneListDouble *doneList = createDoneList(aluList,tree,a);
+	ToDoList *todolist = createToDoList();
+
+	// set the par entries ... used for the parallel lu
+	const int treeSize = 15;
+	// mutex and cv list for node
+	pthread_mutex_t mutex[treeSize];
+	pthread_cond_t cond[treeSize];
+	for(i=0;i<treeSize;i++)
+	{
+		pthread_mutex_init(&mutex[i],NULL);
+		pthread_cond_init(&cond[i],NULL);
+	}
+
+	ParallelLUDoubleShareData **parList = getMempoolSet(sizeof(ParallelLUDoubleShareData *)*treeSize);
+	if(threadNum == 1)
+	{
+		//used for cross nodes
+		parList[0] = createParallelLUDoubleShareData(doneList,todolist,1,1,-1, 3,&mutex[0],&cond[0]);
+		parList[1] = createParallelLUDoubleShareData(doneList,todolist,1,2,-1, 5,&mutex[1],&cond[1]);
+		parList[2] = createParallelLUDoubleShareData(doneList,todolist,1,3, 6, 7,&mutex[2],&cond[2]);
+		parList[3] = createParallelLUDoubleShareData(doneList,todolist,1,4,-1, 9,&mutex[3],&cond[3]);
+		parList[4] = createParallelLUDoubleShareData(doneList,todolist,1,5, 2,11,&mutex[4],&cond[4]);
+		parList[5] = createParallelLUDoubleShareData(doneList,todolist,1,6, 6,13,&mutex[5],&cond[5]);
+		parList[6] = createParallelLUDoubleShareData(doneList,todolist,1,7, 9,15,&mutex[6],&cond[6]);
+		// used for "LU node"
+		for(i=7;i<15;i++) parList[i] = createParallelLUDoubleShareData(doneList,todolist,1,i+1,0,0,&mutex[i],&cond[i]);
+	}
+	else
+	{
+		//used for cross nodes
+		parList[0] = createParallelLUDoubleShareData(doneList,todolist,1,1,-1, 3,&mutex[0],&cond[0]);
+		parList[1] = createParallelLUDoubleShareData(doneList,todolist,2,2,-1, 5,&mutex[1],&cond[1]);
+		parList[2] = createParallelLUDoubleShareData(doneList,todolist,3,3, 6, 7,&mutex[2],&cond[2]);
+		parList[3] = createParallelLUDoubleShareData(doneList,todolist,4,4,-1, 9,&mutex[3],&cond[3]);
+		parList[4] = createParallelLUDoubleShareData(doneList,todolist,5,5, 2,11,&mutex[4],&cond[4]);
+		parList[5] = createParallelLUDoubleShareData(doneList,todolist,6,6, 6,13,&mutex[5],&cond[5]);
+		parList[6] = createParallelLUDoubleShareData(doneList,todolist,7,7, 9,15,&mutex[6],&cond[6]);
+		// used for "LU node"
+		for(i=7;i<15;i++) parList[i] = createParallelLUDoubleShareData(doneList,todolist,i+1,i+1,0,0,&mutex[i],&cond[i]);
+	}
+
+	pthread_t pid[15];
+	for(i=0;i<15;i++)
+	{
+		if(i==0) pthread_create(&pid[i],NULL,setNode,parList[i]);
+		else if(i<7) pthread_create(&pid[i],NULL,setNode,parList[i]);
+		else pthread_create(&pid[i],NULL,threadLU,parList[i]);
+	}
+	sleep(1);
+
+	struct ThreadHandlerParDouble thread_handle;
+	thread_handle.list = parList;
+	thread_handle.threadNum = threadNum;
+	threadHandlerNew(&thread_handle);
+
+	for(i=0;i<15;i++)
+	{
+		pthread_join(pid[i],NULL);
+	}
+
+	// copy to the result
+	fprintf(stderr,"copy the result\n");
+
+	copySparseDoubleMatrix(l,parList[0]->doneList->alu[1]->l);
+	fprintf(stderr,"berfore the assemble\n");
+	assembleU(u,parList[0]->doneList,15);
+	fprintf(stderr,"after the assemble\n");
+
+	for(i=0;i<tree->size;i++) freePidALU(aluList[i],i);
+	clearPidMempoolSet(1);
+	for(i=0;i<treeSize;i++) freeParallelLUDoubleShareData(parList[i]);
+	retMempoolSet(parList,treeSize*sizeof(ParallelLUDoubleShareData*));
+	retMempoolSet(aluList,sizeof(ALUDouble *)*tree->size);
+	freeDoneList(doneList);
+	freeToDoList(todolist);
+}
+@
+
+
+1.15
+log
+@ok version
+back up here, bcz the "u" matrix in alu list has too many redundant
+does not need to save the whole u
+@
+text
+@d136 1
+d151 1
+a151 1
+			int aRow = tree->node[i]->rowEnd - tree->node[i]->rowBegin + 1;
+d153 1
+d158 1
+a158 1
+				aRow = aRow + (tree->node[i]->doneRowEnd - tree->node[i]->doneRowBegin +1);
+d176 2
+a177 2
+				aluList[i]->a = createPidSparseDoubleMatrix(aRow,aCol,i);
+				aluList[i]->l = createPidSparseDoubleMatrix(aRow,aRow,i);
+d214 3
+d221 3
+a223 3
+		freePidSparseDoubleMatrix(alu->a,pid);
+		freePidSparseDoubleMatrix(alu->l,pid);
+		freePidSparseDoubleMatrix(alu->u,pid);
+d245 4
+d250 2
+d256 2
+d338 1
+a338 1
+			freePidALU(doneList->alu[current],current);
+d368 1
+a368 1
+			freePidALU(doneList->alu[i],i);
+d398 2
+a400 1
+		SparseDoubleMatrix *r_sub = getPartialU(R,doneList,pid);
+d403 2
+d407 1
+d411 1
+a411 1
+
+d414 1
+d416 1
+a417 4
+		
+		freePidSparseDoubleMatrix(l_sub,pid);
+		freePidSparseDoubleMatrix(r_sub,pid);
+
+a427 1
+
+d439 1
+a439 1
+	fprintf(stderr,"setNode begin: %d\n",ptr->N);
+d455 1
+a455 1
+	SparseDoubleMatrix *u_link = createPidSparseDoubleMatrix(rowLink,colLink,pid);
+d480 1
+a480 1
+			fprintf(stderr,"setNode %d process node %d\n",N,current);
+d492 7
+a498 7
+				const int leftRow = doneList->alu[left]->u->totalRow;
+				const int rightRow = doneList->alu[right]->u->totalRow;
+				offset = doneList->alu[current]->u->totalRow - leftRow - rightRow;
+				const int aTotal = doneList->a->totalCol;
+				const SparseDoubleMatrix *const uTemp = doneList->alu[current]->u;
+				partial_u = createPidSparseDoubleMatrix(uTemp->totalRow-leftRow-rightRow,doneList->a->totalCol-base,pid);
+				getPidSubSparseDoubleMatrix(partial_u,uTemp,leftRow+rightRow, leftRow+rightRow,uTemp->totalRow-1,uTemp->totalCol-1,pid);
+d500 1
+a500 1
+//			printf("current = %d, offset =%d, row=%d\n",current,offset,doneList->alu[current]->u->totalRow);
+d551 1
+a551 1
+				freeUnNecessaryALU(doneList,current);
+d556 1
+a556 1
+			fprintf(stderr,"node %d is going to sleep\n",N);
+d562 1
+a562 1
+			fprintf(stderr,"node %d is continue to work\n",N);
+d572 2
+a573 1
+	if(N==1) freeExcept1_2and3(doneList);
+a575 2
+	mergePidSparseDoubleMatrix(doneList->alu[N]->u,doneList->alu[L]->u,doneList->alu[N]->u->totalRow,doneList->alu[N]->u->totalCol,0,0,N);
+	mergePidSparseDoubleMatrix(doneList->alu[N]->u,doneList->alu[R]->u,doneList->alu[N]->u->totalRow,doneList->alu[N]->u->totalCol,l_u_row,l_u_row,N);
+d578 4
+a581 4
+		freePidALU(doneList->alu[2],2);
+		freePidALU(doneList->alu[3],3);
+		clearPidMempoolSet(2);
+		clearPidMempoolSet(3);
+d586 1
+a586 1
+	fprintf(stderr,"node %d enter the final stage\n",N);
+a597 1
+//			scale = getSparseDoubleMatrix(u_link,j,base+i) / pivotRowPtr->data;
+a633 1
+//		const int col = doneList->alu[L]->l->totalRow + doneList->alu[R]->l->totalRow + i;
+a641 2
+	mergePidSparseDoubleMatrix(doneList->alu[N]->u,u_link,doneList->alu[N]->u->totalRow,doneList->alu[N]->u->totalCol,l_u_row+r_u_row,0,N);
+	freePidSparseDoubleMatrix(u_link,pid);
+a643 1
+
+a645 1
+
+a650 1
+//	pthread_detach(pthread_self());
+d689 1
+a689 1
+				fprintf(stderr,"wake up node %d\n",indexInToDoList);	
+d691 1
+a691 1
+				dumpToDoList(stderr,todolist);
+d940 24
+a976 14
+	for(i=0;i<tree->size;i++)
+	{
+		if(tree->node[i]!=NULL)
+		{
+			if(tree->node[i]->type == lu)
+			{
+				const int ltRowSrc = tree->node[i]->rowBegin;
+				const int ltColSrc = ltRowSrc;
+				const int rbRowSrc = tree->node[i]->rowEnd;
+				const int rbColSrc = ltColSrc + aluList[i]->u->totalCol -1 ;
+				getPidSubSparseDoubleMatrix(aluList[i]->a,a,ltRowSrc,ltColSrc,rbRowSrc,rbColSrc,i);
+			}
+		}
+	}
+d1039 2
+d1042 3
+a1044 1
+	copySparseDoubleMatrix(u,parList[0]->doneList->alu[1]->u);
+d1046 1
+a1046 2
+//	for(i=0;i<tree->size;i++) freeALU(aluList[i]);
+	for(i=0;i<2;i++) freePidALU(aluList[i],i);
+@
+
+
+1.14
+log
+@change the single thread to lu version ( not chol)
+for comparable result
+@
+text
+@a2 1
+static pthread_mutex_t freeSinkList_mutex = PTHREAD_MUTEX_INITIALIZER;
+d4 48
+a51 1
+// =================================================
+d54 1
+a54 1
+static void updateLink(SparseDoubleMatrix* sub_l_link, SparseDoubleMatrix* sub_u_link, const SparseDoubleMatrix* subLinkInput, const SparseDoubleMatrix *partial_u)
+d56 5
+a60 7
+	copySparseDoubleMatrix(sub_u_link,subLinkInput);
+	const int row_partial_u = partial_u->totalRow;
+	const int col_partial_u = partial_u->totalCol;
+	const int row_subLink = sub_u_link->totalRow;
+	const int col_subLink = sub_u_link->totalCol;
+	const int totalRow = row_partial_u + row_subLink;
+	const int totalCol = col_partial_u;
+a61 1
+	int i,j,k;
+d63 6
+a68 1
+	for(i=0;i<row_partial_u;i++)
+d70 1
+a70 1
+		for(j=0;j<row_subLink;j++)
+d72 1
+a72 15
+			const double scale = getSparseDoubleMatrix(sub_u_link,j,i) / getSparseDoubleMatrix(partial_u,i,i);
+			delSparseDoubleMatrix(sub_u_link,j,i);
+			if(scale!=0)
+			{
+				SparseDoubleElement *ptrInU = partial_u->rowIndex[i]->rowLink;
+				if(ptrInU!=NULL) ptrInU = ptrInU->rowLink; // because ptrInU[j][i] is deleted
+				while(ptrInU!=NULL)
+				{
+					const int insCol = ptrInU->col;
+					const double data = getSparseDoubleMatrix(sub_u_link,j,insCol) - scale*getSparseDoubleMatrix(partial_u,i,insCol);
+					setSparseDoubleMatrix(sub_u_link,data,j,insCol);
+					ptrInU = ptrInU->rowLink;
+				}
+				setSparseDoubleMatrix(sub_l_link,scale,j,i);
+			}
+d75 1
+a75 2
+
+	for(i=0;i<row_subLink;i++)
+d77 1
+a77 2
+//		fprintf(stderr,"row: %d, col%d\n",i,row_partial_u+i);
+		setSparseDoubleMatrix(sub_l_link,1.0,i,row_partial_u+i);
+d79 2
+a81 1
+//	fprintf(stderr,"ok 2\n");
+d83 9
+a91 1
+	for(i=0;i<row_subLink;i++)
+d93 1
+a93 1
+		for(j=i+1;j<row_subLink;j++)
+d95 2
+a96 15
+			const double scale = getSparseDoubleMatrix(sub_u_link,j,row_partial_u+i) / getSparseDoubleMatrix(sub_u_link,i,row_partial_u+i);
+			delSparseDoubleMatrix(sub_u_link,j,row_partial_u+i);
+			if(scale!=0)
+			{
+				SparseDoubleElement *ptr = sub_u_link->rowIndex[i]->rowLink;
+				if(ptr!=NULL) ptr = ptr->rowLink;
+				while(ptr!=NULL)
+				{
+					const int insCol = ptr->col;
+					const double data = getSparseDoubleMatrix(sub_u_link,j,insCol) - scale*getSparseDoubleMatrix(sub_u_link,i,insCol);
+					setSparseDoubleMatrix(sub_u_link,data,j,insCol);
+					ptr = ptr->rowLink;
+				}
+				setSparseDoubleMatrix(sub_l_link,scale,j,row_partial_u+i);
+			}
+d99 29
+a127 2
+	
+//	fprintf(stderr,"ok 3\n");
+d133 1
+d136 1
+a136 1
+static ALUDouble **createALUList(const ParallelETree *tree,const int totalRow)
+d149 1
+a149 1
+			aluList[i] = getMempoolSet(sizeof(ALUDouble));
+d174 3
+a176 4
+				aluList[i]->a = createSparseDoubleMatrix(aRow,aCol);
+//				aluList[i]->l = createSparseDoubleMatrix(aRow,aCol);
+				aluList[i]->l = createSparseDoubleMatrix(aRow,aRow);
+				aluList[i]->u = createSparseDoubleMatrix(aRow,aCol);
+d195 3
+a197 3
+				aluList[i]->a = createSparseDoubleMatrix(aRow,aCol);
+				aluList[i]->l = createSparseDoubleMatrix(aRow,aRow);
+				aluList[i]->u = createSparseDoubleMatrix(aRow,aCol);
+d201 1
+a201 1
+				fprintf(stderr,"in ALU list: undefine\n");
+d205 1
+a205 1
+			fprintf(stderr,"i:%d, rowBegin:%d, rowEnd:%d, aRow:%d, aCol:%d\n",i,tree->node[i]->rowBegin,tree->node[i]->rowEnd,aRow,aCol);
+d212 1
+a212 1
+static void freeALU(ALUDouble *alu)
+d216 4
+a219 4
+		freeSparseDoubleMatrix(alu->a);
+		freeSparseDoubleMatrix(alu->l);
+		freeSparseDoubleMatrix(alu->u);
+		retMempoolSet(alu,sizeof(ALUDouble));
+d223 50
+a272 2
+/*
+static void freeALUList(ALU **aluList,const int size)
+d275 2
+a276 1
+	for(i=0;i<size;i++) 
+d278 4
+a281 1
+		freeALU(aluList[i]);
+d283 1
+a283 1
+	retMempoolSet(aluList,size*sizeof(ALU *));
+a284 1
+*/
+d289 22
+d312 1
+d314 1
+a314 1
+static void *testParallelKernel(void *par)
+d316 26
+a341 1
+	ParallelLUDoubleShareData *ptr = (ParallelLUDoubleShareData *)par;
+d343 22
+a364 13
+	// ==================================================
+	// 	used for dump out the golden lu of a
+	// ==================================================
+/*	dumpSparseDoubleMatrix(stdout,ptr->a);
+	SparseDoubleMatrix *goldenL = createSparseDoubleMatrix(ptr->a->totalRow,ptr->a->totalRow);	
+	SparseDoubleMatrix *goldenU = createSparseDoubleMatrix(ptr->a->totalRow,ptr->a->totalCol);	
+	luSparseDoubleMatrix(goldenL,goldenU,ptr->a,1);
+	dumpSparseDoubleMatrix(stdout,goldenL);
+	dumpSparseDoubleMatrix(stdout,goldenU);
+	freeSparseDoubleMatrix(goldenL);
+	freeSparseDoubleMatrix(goldenU);
+*/
+	// ==================================================
+d366 4
+a369 1
+	while(gdsl_queue_get_size_mutex(ptr->freeSinkList)!=0)
+d371 28
+a398 53
+		pthread_mutex_lock(&freeSinkList_mutex);
+		int *indexInQueue = gdsl_queue_get_head(ptr->freeSinkList);
+		if(indexInQueue == NULL)
+		{
+			// just in case that concurrently get the queue data when only remaining 1 element
+			pthread_exit(0);
+		}
+		gdsl_queue_remove(ptr->freeSinkList);
+		pthread_mutex_unlock(&freeSinkList_mutex);
+
+		if( ptr->tree->node[*indexInQueue]->type == lu)
+		{
+			fprintf(stderr,"lu begin: %d\n",*indexInQueue);
+			luSparseDoubleMatrix(ptr->alu[*indexInQueue]->l,ptr->alu[*indexInQueue]->u,ptr->alu[*indexInQueue]->a,1);
+			fprintf(stderr,"lu done: %d\n\n",*indexInQueue);
+		}
+		else if( ptr->tree->node[*indexInQueue]->type == cross)
+		{
+			fprintf(stderr,"cross begin:%d\n",*indexInQueue);
+			const int leftIndex = (*indexInQueue)*2;
+			const int rightIndex = leftIndex + 1;
+			const int rowPart1 = ptr->alu[leftIndex]->a->totalRow;
+			const int colPart1 = ptr->alu[leftIndex]->a->totalCol;
+			const int rowPart2 = ptr->alu[rightIndex]->a->totalRow;
+			const int colPart2 = ptr->alu[rightIndex]->a->totalCol;
+			const int rowPart1Begin = ptr->tree->node[leftIndex]->rowBegin;
+			const int rowPart1End = ptr->tree->node[leftIndex]->rowEnd;
+			const int rowPart2Begin = ptr->tree->node[rightIndex]->rowBegin;
+			const int rowPart2End = ptr->tree->node[rightIndex]->rowEnd;
+			const int base = ptr->tree->node[*indexInQueue]->doneRowBegin;
+			const SparseDoubleMatrix *partialL1 = ptr->alu[leftIndex]->l;
+			const SparseDoubleMatrix *partialU1 = ptr->alu[leftIndex]->u;
+			const SparseDoubleMatrix *partialL2 = ptr->alu[rightIndex]->l;
+			const SparseDoubleMatrix *partialU2 = ptr->alu[rightIndex]->u;
+
+			const int rowTempL = rowPart1 + rowPart2;
+			const int colTempL = rowTempL;
+			const int rowTempU = rowTempL;
+			const int colTempU = ptr->alu[*indexInQueue]->a->totalCol;
+
+			fprintf(stderr,"after init link\n");
+//			fprintf(stderr,"r1:%d, c1:%d, r2:%d, c2:%d\n",rowPart1,colPart1,rowPart2,colPart2);
+			SparseDoubleMatrix *tempL = createSparseDoubleMatrix(rowTempL,colTempL);
+			SparseDoubleMatrix *tempU = createSparseDoubleMatrix(rowTempU,colTempU);
+/*
+			fprintf(stderr,"merge L\n");
+			fprintf(stderr,"base:%d\n",base);
+			fprintf(stderr,"targetRow:%d,targetCol:%d,baseRow:%d,baseCol:%d\n",rowTempL,colTempL,0,0);
+			fprintf(stderr,"targetRow:%d,targetCol:%d,baseRow:%d,baseCol:%d\n",rowTempL,colTempL,rowPart1End+1-base,rowPart1End+1-base);
+			fprintf(stderr,"partialL1->row:%d,partialL1->col:%d\n",partialL1->totalRow,partialL1->totalCol);
+			fprintf(stderr,"partialL2->row:%d,partialL2->col:%d\n",partialL2->totalRow,partialL2->totalCol);
+*/			mergeSparseDoubleMatrix(tempL,partialL1,rowTempL,colTempL,0,0);
+			mergeSparseDoubleMatrix(tempL,partialL2,rowTempL,colTempL,rowPart1End+1-base,rowPart1End+1-base);
+d400 120
+a519 46
+/*			fprintf(stderr,"merge U\n");
+			fprintf(stderr,"base:%d\n",base);
+			fprintf(stderr,"targetRow:%d,targetCol:%d,baseRow:%d,baseCol:%d\n",rowTempU,colTempU,0,0);
+			fprintf(stderr,"targetRow:%d,targetCol:%d,baseRow:%d,baseCol:%d\n",rowTempU,colTempU,rowPart1End+1-base,rowPart1End+1-base);
+			fprintf(stderr,"partialU1->row:%d,partialU1->col:%d\n",partialU1->totalRow,partialU1->totalCol);
+			fprintf(stderr,"partialU2->row:%d,partialU2->col:%d\n",partialU2->totalRow,partialU2->totalCol);
+*/			mergeSparseDoubleMatrix(tempU,partialU1,rowTempU,colTempU,0,0);
+			mergeSparseDoubleMatrix(tempU,partialU2,rowTempU,colTempU,rowPart1End+1-base,rowPart1End+1-base);
+
+			const int rowLink = ptr->tree->node[*indexInQueue]->rowEnd - ptr->tree->node[*indexInQueue]->rowBegin +1;
+			const int colLink = colPart1;
+			SparseDoubleMatrix *link = createSparseDoubleMatrix(rowLink,colLink);
+			const int rowCrossBegin = ptr->tree->node[*indexInQueue]->rowBegin;
+			const int rowCrossEnd = ptr->tree->node[*indexInQueue]->rowEnd;
+			const int currentDoneRowBegin = ptr->tree->node[*indexInQueue]->doneRowBegin;
+
+			getSubSparseDoubleMatrix(link,ptr->a,rowCrossBegin,currentDoneRowBegin,rowCrossEnd,ptr->a->totalCol);
+ 
+			// link is ok ..
+//			dumpSparseDoubleMatrix(stderr,tempU);
+//			dumpSparseDoubleMatrix(stderr,link);
+//			exit(0);
+//			dumpSparseDoubleMatrix(stdout,ptr->a);
+//			dumpSparseDoubleMatrix(stderr,tempU);
+//			fprintf(stderr,"cross size 1 : (%d,%d) \n",ptr->alu[*indexInQueue]->l->totalRow,ptr->alu[*indexInQueue]->l->totalCol);
+//			fprintf(stderr,"cross size 2 : (%d,%d) \n",ptr->alu[*indexInQueue]->u->totalRow,ptr->alu[*indexInQueue]->u->totalCol);
+//			fprintf(stderr,"cross size: (%d,%d) \n",rowLink,colLink);
+		
+			// update the link
+			SparseDoubleMatrix *sub_l_link = createSparseDoubleMatrix(rowLink,colLink);
+			SparseDoubleMatrix *sub_u_link = createSparseDoubleMatrix(rowLink,colLink);
+			updateLink(sub_l_link,sub_u_link,link,tempU);
+			const int currentLRow = ptr->alu[*indexInQueue]->l->totalRow;
+			const int currentLCol = ptr->alu[*indexInQueue]->l->totalCol;
+			mergeSparseDoubleMatrix(ptr->alu[*indexInQueue]->l,tempL,currentLRow,currentLCol,0,0);
+			mergeSparseDoubleMatrix(ptr->alu[*indexInQueue]->l,sub_l_link,currentLRow,currentLCol,rowPart1+rowPart2,0);
+			const int currentURow = ptr->alu[*indexInQueue]->u->totalRow;
+			const int currentUCol = ptr->alu[*indexInQueue]->u->totalCol;
+			mergeSparseDoubleMatrix(ptr->alu[*indexInQueue]->u,tempU,currentURow,currentUCol,0,0);
+			mergeSparseDoubleMatrix(ptr->alu[*indexInQueue]->u,sub_u_link,currentURow,currentUCol,rowPart1+rowPart2,0);
+			freeSparseDoubleMatrix(sub_l_link);
+			freeSparseDoubleMatrix(sub_u_link);
+
+			freeSparseDoubleMatrix(link);
+			freeSparseDoubleMatrix(tempL);
+			freeSparseDoubleMatrix(tempU);
+d521 5
+a525 2
+			freeALU(ptr->alu[leftIndex]);
+			freeALU(ptr->alu[rightIndex]);
+d527 12
+a538 1
+			fprintf(stderr,"cross done:%d\n\n",*indexInQueue);
+d542 65
+a606 2
+			fprintf(stderr,"undefined %d\n",*indexInQueue);
+			exit(0);
+d608 8
+d617 8
+a624 4
+		pthread_mutex_lock(&freeSinkList_mutex);
+		updateFreeSinkList(ptr->freeSinkList,ptr->tree,*indexInQueue);
+		pthread_mutex_unlock(&freeSinkList_mutex);
+		retMempoolSet(indexInQueue,sizeof(int));
+d626 19
+d650 47
+d698 1
+d700 2
+a701 1
+void parallelLUDouble(SparseDoubleMatrix *l,SparseDoubleMatrix *u, ParallelETree *tree, const SparseDoubleMatrix *a, const int threadNum)
+d703 101
+a803 3
+	int i;
+	int status;
+	pthread_t pid[threadNum];
+d805 29
+d835 1
+a835 4
+	// preprocessing
+	gdsl_queue_t freeSinkList = gdsl_queue_alloc("freeSinkList",alloc_int,free_int);
+	getInitSinkList(freeSinkList,tree);
+	getDoneRowInfo(tree,freeSinkList);
+d837 8
+a844 4
+	// print out the done row information
+	fprintf(stderr,"\n =======================\n");
+	fprintf(stderr,"done row information\n");
+	for(i=0;i<tree->size;i++)
+d846 3
+a848 1
+		if(tree->node[i]!=NULL)
+d850 20
+a869 1
+			fprintf(stderr,"i:%d, doneRowBegin:%d,doneRowEnd:%d\n",i,tree->node[i]->doneRowBegin,tree->node[i]->doneRowEnd);
+d872 71
+a942 1
+	fprintf(stderr,"\n =======================\n");
+d944 3
+a946 1
+	ALUDouble **aluList = createALUList(tree,a->totalRow);
+d957 1
+a957 1
+				getSubSparseDoubleMatrix(aluList[i]->a,a,ltRowSrc,ltColSrc,rbRowSrc,rbColSrc);
+d961 41
+d1003 2
+a1004 4
+	// print out the alu information
+	fprintf(stderr,"\n =======================\n");
+	fprintf(stderr,"alu information\n");
+	for(i=0;i<tree->size;i++)
+d1006 3
+a1008 4
+		if(tree->node[i]!=NULL)
+		{
+			fprintf(stderr,"i:%d, aRow:%d,aCol:%d, lRow:%d,lCol:%d, uRow:%d,uCol:%d \n",i,aluList[i]->a->totalRow,aluList[i]->a->totalCol,aluList[i]->l->totalRow,aluList[i]->l->totalCol,aluList[i]->u->totalRow,aluList[i]->u->totalCol);
+		}
+d1010 1
+a1010 1
+	fprintf(stderr,"\n =======================\n");
+d1012 4
+d1017 4
+a1020 17
+	// set the par entries ... used for the parallel lu
+	ParallelLUDoubleShareData *par = getMempoolSet(sizeof(ParallelLUDoubleShareData));
+	par->alu = aluList;
+	par->freeSinkList = freeSinkList;
+	par->tree = tree;
+	par->a = a;
+	fprintf(stderr,"before enter thread\n");
+
+	// actual lu and update
+	for(i=0;i<threadNum;i++) status = pthread_create(&pid[i],NULL,testParallelKernel,par);	
+	// join the result
+	for(i=0;i<threadNum;i++) status = pthread_join(pid[i],NULL);
+
+// 	copy to the result
+	copySparseDoubleMatrix(l,par->alu[1]->l);
+	copySparseDoubleMatrix(u,par->alu[1]->u);
+	
+d1022 9
+a1030 1
+	freeALU(par->alu[1]);
+d1032 2
+a1033 2
+	retMempoolSet(par,sizeof(ParallelLUDoubleShareData));
+	gdsl_queue_free(freeSinkList);
+@
+
+
+1.13
+log
+@*** empty log message ***
+@
+text
+@a325 23
+static void getDoneRowInfo(ParallelETree *tree,const gdsl_queue_t freeSinkListSrc)
+{
+	int i;
+	gdsl_queue_t freeSinkList = gdsl_queue_alloc("freeSinkListTemp",alloc_int,free_int);
+	getInitSinkList(freeSinkList,tree);
+	// set the doneRow information
+	while(gdsl_queue_get_size(freeSinkList)!=0)
+	{
+		int *indexInQueue = gdsl_queue_get_head(freeSinkList);
+		gdsl_queue_remove(freeSinkList);
+		updateFreeSinkList(freeSinkList,tree,*indexInQueue);
+		retMempoolSet(indexInQueue,sizeof(int));
+	}
+
+	// recover the setting of visiting the tree
+	for(i=0;i<tree->size;i++)
+	{
+		if(tree->node[i] == NULL) continue;
+		else tree->node[i]->visitLog = notvisit;
+	}
+
+	gdsl_queue_free(freeSinkList);
+}
+a393 7
+/*
+	for(i=0;i<threadNum;i++)
+	{
+		status = pthread_create(&pid[i],NULL,testParallelKernel,par);	
+		status = pthread_join(pid[i],NULL);
+	}
+*/
+@
+
+
+1.12
+log
+@*** empty log message ***
+@
+text
+@d146 1
+a146 1
+				fprintf(stderr,"undefine\n");
+d246 1
+a246 1
+			fprintf(stderr,"r1:%d, c1:%d, r2:%d, c2:%d\n",rowPart1,colPart1,rowPart2,colPart2);
+d249 1
+a249 1
+
+d256 1
+a256 1
+			mergeSparseDoubleMatrix(tempL,partialL1,rowTempL,colTempL,0,0);
+d259 1
+a259 1
+			fprintf(stderr,"merge U\n");
+d265 1
+a265 1
+			mergeSparseDoubleMatrix(tempU,partialU1,rowTempU,colTempU,0,0);
+a357 1
+//	dumpSparseDoubleMatrix(stdout,a);
+@
+
+
+1.11
+log
+@fix the non-balanced elimination tree bug, the ok version
+@
+text
+@a286 1
+
+a298 1
+
+@
+
+
+1.10
+log
+@*** empty log message ***
+@
+text
+@d119 2
+a120 1
+				aluList[i]->l = createSparseDoubleMatrix(aRow,aCol);
+a182 1
+static pthread_mutex_t luSerial_mutex = PTHREAD_MUTEX_INITIALIZER;
+a186 1
+//	pthread_mutex_lock(&luSerial_mutex);
+a217 6
+
+//			fprintf(stdout,"\n\n ===== %d =====  \n\n",*indexInQueue);
+//			dumpSparseDoubleMatrix(stdout,ptr->alu[*indexInQueue]->a);
+//			pthread_mutex_unlock(&luSerial_mutex);
+
+//			dumpSparseDoubleMatrix(stdout,ptr->alu[*indexInQueue]->a);
+d219 1
+a219 5
+//			fprintf(stdout,"\n\n ===== l: %d =====  \n\n",*indexInQueue);
+//			dumpSparseDoubleMatrix(stdout,ptr->alu[*indexInQueue]->l);
+//			fprintf(stdout,"\n\n ===== u: %d =====  \n\n",*indexInQueue);
+//			dumpSparseDoubleMatrix(stdout,ptr->alu[*indexInQueue]->u);
+			fprintf(stderr,"lu done: %d\n",*indexInQueue);
+d246 1
+a246 1
+//			fprintf(stderr,"r1:%d, c1:%d, r2:%d, c2:%d\n",rowPart1,colPart1,rowPart2,colPart2);
+d250 1
+a250 4
+			fprintf(stderr,"after merge 0 link\n");
+			mergeSparseDoubleMatrix(tempL,partialL1,rowTempL,colTempL,rowPart1Begin-base,rowPart1Begin-base);
+			fprintf(stderr,"after merge 0.5 link\n");
+
+d252 5
+a256 5
+			if(*indexInQueue == 1)
+			{
+				fprintf(stderr,"targetRow:%d,targetCol:%d,baseRow:%d,baseCol:%d\n",rowTempL,colTempL,rowPart1End+1-base,rowPart1End+1-base);
+				fprintf(stderr,"partialL2->row:%d,partialL2->col:%d\n",partialL2->totalRow,partialL2->totalCol);
+			}
+a257 1
+//			fprintf(stderr,"(r1)=(%d) , (r2)=(%d)\n",rowPart1Begin-base,rowPart2Begin-base);
+d259 8
+a266 4
+			fprintf(stderr,"after merge 1 link\n");
+			mergeSparseDoubleMatrix(tempU,partialU1,rowTempU,colTempU,rowPart1Begin-base,rowPart1Begin-base);
+			mergeSparseDoubleMatrix(tempU,partialU2,rowTempU,colTempU,rowPart2Begin-base,rowPart2Begin-base);
+//			mergeSparseDoubleMatrix(tempU,partialU2,rowTempU,colTempU,rowPart1End+1-base,rowPart1End+1-base);
+a267 1
+			fprintf(stderr,"after merge 2 link\n");
+d311 1
+a311 1
+			fprintf(stderr,"cross done:%d\n",*indexInQueue);
+a323 2
+//	fprintf(stderr,"thread pid:%p exit\n",pthread_self());
+//	pthread_mutex_unlock(&luSerial_mutex);
+d420 7
+@
+
+
+1.9
+log
+@*** empty log message ***
+@
+text
+@d409 12
+@
+
+
+1.8
+log
+@*** empty log message ***
+@
+text
+@d265 1
+d268 1
+a268 2
+				fprintf(stderr,"base:%d\n",base);
+				fprintf(stderr,"targetRow:%d,targetCol:%d,baseRow:%d,baseCol:%d\n",rowTempL,colTempL,rowPart2Begin-base,rowPart2Begin-base);
+a269 1
+				//dumpSparseDoubleMatrix(stderr,partialL2);
+d271 1
+a271 1
+			mergeSparseDoubleMatrix(tempL,partialL2,rowTempL,colTempL,rowPart2Begin-base,rowPart2Begin-base);
+d277 1
+@
+
+
+1.7
+log
+@can work, but with some bug edition
+the bug is described in the buglist.txt
+@
+text
+@d245 1
+a245 2
+			//const int base = rowPart1Begin;
+			const int base = rowPart1Begin;
+@
+
+
+1.6
+log
+@*** empty log message ***
+@
+text
+@d245 1
+d265 8
+d381 13
+@
+
+
+1.5
+log
+@*** empty log message ***
+@
+text
+@d256 1
+d261 1
+d263 1
+d267 1
+d271 1
+d290 2
+a291 1
+			
+@
+
+
+1.4
+log
+@*** empty log message ***
+@
+text
+@d322 1
+a322 1
+	fprintf(stderr,"thread pid:%p exit\n",pthread_self());
+@
+
+
+1.3
+log
+@*** empty log message ***
+@
+text
+@a2 1
+
+a4 74
+static gdsl_element_t alloc_int(void *ptr)
+{
+
+	int *n = (int *) ptr;
+	int *value = getMempoolSet(sizeof(int));
+
+	// copy from n to value
+	memcpy(value,n,sizeof(int));
+	
+
+	return (gdsl_element_t) value;
+}
+
+
+static void free_int(gdsl_element_t e)
+{
+	retMempoolSet(e,sizeof(int));
+}
+
+
+static int gdsl_queue_get_size_mutex(gdsl_queue_t queue)
+{
+	int n;
+	n = gdsl_queue_get_size(queue);
+	return n;
+}
+
+
+
+static void getInitSinkList(gdsl_queue_t freeSinkList, const ParallelETree *tree)
+{
+	int i;
+	for(i=0;i<tree->size;i++)
+	{
+		if(tree->node[i]!=NULL)
+		{
+			if(tree->node[i]->type == lu)
+			{
+				gdsl_queue_insert(freeSinkList,&i);
+			}
+		}
+	}
+}
+
+
+
+static void updateFreeSinkList(gdsl_queue_t freeSinkList, ParallelETree *tree, const int currentNodeIndex)
+{
+
+	int rootIndex = currentNodeIndex/2;
+	const int leftIndex = rootIndex*2;
+	const int rightIndex = rootIndex*2 + 1;
+
+	tree->node[currentNodeIndex]->visitLog = visit;
+
+	if(tree->node[rootIndex]==NULL) return;
+
+	if( tree->node[leftIndex]->visitLog==visit && tree->node[rightIndex]->visitLog==visit )
+	{
+		int temp1,temp2;
+		gdsl_queue_insert(freeSinkList,&rootIndex);
+		temp1 = GSL_MIN(tree->node[leftIndex]->doneRowBegin,tree->node[rightIndex]->doneRowBegin);
+		temp2 = GSL_MIN(tree->node[leftIndex]->rowBegin,tree->node[rightIndex]->rowBegin);
+		tree->node[rootIndex]->doneRowBegin = GSL_MIN(temp1,temp2);
+		temp1 = GSL_MAX(tree->node[leftIndex]->doneRowEnd,tree->node[rightIndex]->doneRowEnd);
+		temp2 = GSL_MAX(tree->node[leftIndex]->rowEnd,tree->node[rightIndex]->rowEnd);
+		tree->node[rootIndex]->doneRowEnd = GSL_MAX(temp1,temp2);
+
+	}
+}
+
+
+
+
+a77 21
+struct ALU
+{
+	SparseDoubleMatrix *a;
+	SparseDoubleMatrix *l;
+	SparseDoubleMatrix *u;
+};
+
+typedef struct ALU ALU;
+
+
+struct ParallelLUDoubleShareData
+{
+	ALU **alu;
+	gdsl_queue_t freeSinkList; 
+	ParallelETree *tree;
+	const SparseDoubleMatrix *a;
+};
+
+typedef struct ParallelLUDoubleShareData ParallelLUDoubleShareData;
+
+
+d80 1
+a80 1
+static ALU **createALUList(const ParallelETree *tree,const int totalRow)
+d83 2
+a84 2
+	ALU **aluList = getMempoolSet(sizeof(ALU *)*tree->size);
+	memset(aluList,0,sizeof(ALU *)*tree->size);
+d93 1
+a93 1
+			aluList[i] = getMempoolSet(sizeof(ALU));
+d156 1
+a156 1
+static void freeALU(ALU *alu)
+d163 1
+a163 1
+		retMempoolSet(alu,sizeof(ALU));
+d366 1
+a366 1
+	ALU **aluList = createALUList(tree,a->totalRow);
+d402 1
+a402 1
+	retMempoolSet(aluList,sizeof(ALU *)*tree->size);
+@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@a152 2
+
+
+d163 1
+a163 1
+struct ParallelLUShareData
+d171 1
+a171 1
+typedef struct ParallelLUShareData ParallelLUShareData;
+d284 1
+a284 1
+	ParallelLUShareData *ptr = (ParallelLUShareData *)par;
+d480 1
+a480 1
+	ParallelLUShareData *par = getMempoolSet(sizeof(ParallelLUShareData));
+d499 1
+a499 1
+	retMempoolSet(par,sizeof(ParallelLUShareData));
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d452 1
+a452 1
+void testParallelLU(SparseDoubleMatrix *l,SparseDoubleMatrix *u, ParallelETree *tree, const SparseDoubleMatrix *a, const int threadNum)
+@

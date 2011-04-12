@@ -1,0 +1,739 @@
+head	1.9;
+access;
+symbols;
+locks
+	d96041:1.9; strict;
+comment	@ * @;
+
+
+1.9
+date	2010.11.14.12.48.53;	author d96041;	state Exp;
+branches;
+next	1.8;
+
+1.8
+date	2010.07.16.12.42.34;	author d96041;	state Exp;
+branches;
+next	1.7;
+
+1.7
+date	2010.07.13.13.27.29;	author d96041;	state Exp;
+branches;
+next	1.6;
+
+1.6
+date	2010.07.12.12.48.11;	author d96041;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	2010.07.10.14.15.21;	author d96041;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	2010.07.10.10.23.14;	author d96041;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	2010.07.10.09.52.24;	author d96041;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2010.07.08.12.43.13;	author d96041;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2010.06.24.08.33.07;	author r97124;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.9
+log
+@ok version ~ use the new "cache" scheme
+@
+text
+@#include "solvesparsedoublematrix.h"
+
+
+
+// ============================================
+
+
+
+
+// a = plu
+void luSparseDoubleMatrix(SparseDoubleMatrix *l, SparseDoubleMatrix *u,const SparseDoubleMatrix *a)
+{
+	luPidSparseDoubleMatrix(l,u,a,0);
+}
+
+
+
+
+void luPidSparseDoubleMatrix(SparseDoubleMatrix *l, SparseDoubleMatrix *u,const SparseDoubleMatrix *a,const int pid)
+{
+	// init & alloc
+	double scale = 0.0;
+	double element = 0.0;
+		
+	clearPidSparseDoubleMatrix(l,pid);
+	clearPidSparseDoubleMatrix(u,pid);
+
+//	preproceesing
+	copyPidSparseDoubleMatrix(u,a,pid);
+	identityPidSparseDoubleMatrix(l,pid);
+	int i,j;
+
+	SparseDoubleElement *uiCache = NULL;	
+	SparseDoubleElement *uEachRowCache = NULL;	
+
+	SparseDoubleElement **lRowCache = getPidMempoolSet(sizeof(SparseDoubleElement *)*l->totalRow,pid);
+	SparseDoubleElement *lColCache = NULL;
+	SparseDoubleElement *uRowCache = NULL;
+	SparseDoubleElement **uColCache = getPidMempoolSet(sizeof(SparseDoubleElement *)*u->totalCol,pid);
+	SparseDoubleElement **delRowCache = getPidMempoolSet(sizeof(SparseDoubleElement *)*u->totalRow,pid);
+	SparseDoubleElement *delColCache = NULL;
+
+	for(i=0;i<l->totalRow;i++) lRowCache[i] = NULL;
+	for(i=0;i<u->totalCol;i++) uColCache[i] = NULL;
+	for(i=0;i<u->totalRow;i++) delRowCache[i] = NULL;
+
+	// perform lu
+	for(i=0;i<u->totalRow-1;i++) // permutate
+	{
+		const SparseDoubleElement *aii = u->rowIndex[i]->rowLink;
+		const SparseDoubleElement *eachRow = aii->colLink;
+		while(eachRow != NULL) // update E
+		{
+			scale = eachRow->data / aii->data;
+			if(scale!=0)
+			{
+				setFastPidSparseDoubleMatrix(l,scale,eachRow->row,i,&lRowCache[eachRow->row],&lColCache,pid);
+				SparseDoubleElement *inRow = aii->rowLink;
+				while(inRow != NULL)
+				{
+					element = scale * getFastRowSparseDoubleMatrix(u,i,inRow->col,&uiCache);
+					element = getFastRowSparseDoubleMatrix(u,eachRow->row,inRow->col,&uEachRowCache) - element;
+					setFastPidSparseDoubleMatrix(u,element,eachRow->row,inRow->col,&uRowCache,&uColCache[inRow->col],pid);
+					inRow = inRow->rowLink;
+				}
+			}
+			const SparseDoubleElement *next = eachRow->colLink;
+			delFastPidSparseDoubleMatrix(u,eachRow->row,i,&delRowCache[eachRow->row],&delColCache,pid);
+			eachRow = next;
+		}
+	}
+
+	retPidMempoolSet(lRowCache,sizeof(SparseDoubleElement *)*l->totalRow,pid);
+	retPidMempoolSet(uColCache,sizeof(SparseDoubleElement *)*u->totalCol,pid);
+	retPidMempoolSet(delRowCache,sizeof(SparseDoubleElement *)*u->totalRow,pid);
+}
+
+
+
+
+static double getSumInChol(const SparseDoubleMatrix *l, const int i,const int j)
+{
+	double sum = 0.0;
+	int colI,colJ;
+	const SparseDoubleElement *rowIPtr = l->rowIndex[i]->rowLink;
+	const SparseDoubleElement *rowJPtr = l->rowIndex[j]->rowLink;
+	while(rowIPtr!=NULL && rowJPtr!=NULL)
+	{
+		colI = rowIPtr->col;
+		colJ = rowJPtr->col;
+		if(colI>=j || colJ>=j)
+		{
+			break;
+		}
+		else
+		{
+			if(colI == colJ)
+			{
+				sum += rowIPtr->data * rowJPtr->data;
+				rowIPtr = rowIPtr->rowLink;
+				rowJPtr = rowJPtr->rowLink;
+			}
+			else if(colI > colJ)
+			{
+				rowJPtr = rowJPtr->rowLink;
+			}
+			else
+			{
+				rowIPtr = rowIPtr->rowLink;
+			}
+		}
+	}
+	return sum;
+}
+
+
+static void cdiv(SparseDoubleMatrix *l,const int j)
+{
+	SparseDoubleElement *ajjPtr = l->colIndex[j]->colLink;
+	ajjPtr->data = sqrt(ajjPtr->data);
+	const double ajj = ajjPtr->data;
+	SparseDoubleElement *currentPtr = ajjPtr->colLink;
+	while(currentPtr!=NULL)
+	{
+		int row = currentPtr->row;
+		const double aij = currentPtr->data;
+		currentPtr->data = aij/ajj;
+		currentPtr = currentPtr->colLink;
+	}
+}
+
+
+
+
+static void cmod(SparseDoubleMatrix *l,const int j,const int k,const double ajk)
+{
+	int i;
+	/*
+	for(i=j;i<l->totalRow;i++)
+	{
+		const double aij = getSparseDoubleMatrix(l,i,j);
+		const double aik = getSparseDoubleMatrix(l,i,k);
+		const double result = aij-aik*ajk;
+		if(result!=0) setSparseDoubleMatrix(l,result,i,j);
+		else delSparseDoubleMatrix(l,i,j);
+	}
+*/
+	SparseDoubleElement *colKPtr = l->colIndex[k]->colLink;
+	SparseDoubleElement *base = NULL;
+	while(colKPtr!=NULL)
+	{
+		i = colKPtr->row;
+		if(i < j)
+		{
+			colKPtr = colKPtr->colLink;
+		}
+		else
+		{
+			const double aik = colKPtr->data;
+			const double result = aik*ajk;
+			if(result!=0)
+			{
+//				decSparseDoubleMatrix(l,result,i,j);
+				base = decFastSparseDoubleMatrix(l,result,i,j,colKPtr,base);
+			}
+			else
+			{
+				fprintf(stderr,"damn\n");
+				delSparseDoubleMatrix(l,i,j);
+			}
+			colKPtr = colKPtr->colLink;
+		}
+	}
+}
+
+
+
+
+void cholSparseDoubleMatrix(SparseDoubleMatrix *l, const SparseDoubleMatrix *a)
+{
+	// copy the lower triangular from a to l
+	clearSparseDoubleMatrix(l);
+	int i,j,k;
+	for(i=0;i<a->totalRow;i++)
+	{
+		const SparseDoubleElement *eachRow = a->rowIndex[i]->rowLink;
+		while(eachRow!=NULL)
+		{
+			const int row = i;
+			const int col = eachRow->col;
+			if(col > row)
+			{
+				break;
+			}
+			else
+			{
+				setSparseDoubleMatrix(l,eachRow->data,row,col);		
+				eachRow = eachRow->rowLink;
+			}
+		}
+	}
+
+/*
+//	dumpSparseDoubleMatrix(stderr,l);
+	// perfom sparse cholesky , left looking
+	for(j=0;j<a->totalRow;j++) // for each row j
+	{
+		fprintf(stderr,"%d/%d\n",a->totalRow,j);
+		SparseDoubleElement *currentPtr = l->rowIndex[j]->rowLink;
+		while(currentPtr!=NULL)
+		{
+			k = currentPtr->col;
+			const double ajk = currentPtr->data;
+			if(k>=j) break;
+			else
+			{
+				cmod(l,j,k,ajk);
+				currentPtr = currentPtr->rowLink;
+			}
+		}
+		cdiv(l,j);
+	}
+*/
+
+	// cholesky ~ right looking
+	for(k=0;k<a->totalCol;k++)
+	{
+		fprintf(stderr,"%d/%d\n",k,a->totalRow);
+		cdiv(l,k);
+		SparseDoubleElement *currentPtr = l->colIndex[k]->colLink;
+		while(currentPtr!=NULL)
+		{
+			j = currentPtr->row;
+			const double ajk = currentPtr->data;
+			if(j>k)
+			{
+				cmod(l,j,k,ajk);
+			}
+			currentPtr = currentPtr->colLink;
+		}
+	}
+
+
+//	dumpSparseDoubleMatrix(stderr,l);
+
+	/* the dense implementation
+	int i;
+	int j;
+	clearSparseDoubleMatrix(l);
+	for(i=0;i<a->totalRow;i++)
+	{
+		for(j=0;j<=i;j++)
+		{
+			if(i==j)
+			{
+				const double aii = getSparseDoubleMatrix(a,i,i);
+				const double sum = getSumInChol(l,i,i);
+				const double result = sqrt(aii - sum);
+				setSparseDoubleMatrix(l,result,i,i);
+			}
+			else
+			{
+				const double ljj = getSparseDoubleMatrix(l,j,j);
+				const double aij = getSparseDoubleMatrix(a,i,j);
+				const double sum = getSumInChol(l,i,j);
+				const double result = (aij-sum)/ljj;
+				if(result!=0) setSparseDoubleMatrix(l,result,i,j);
+			}
+		}
+	}
+	*/
+
+
+	
+}
+
+
+
+
+
+
+//      ax = b
+// -> plux = b
+// ->  lux = pb  , y = ux 
+// ->   ly = pb
+// solve y , then solve ux = y
+void triSolveSparseDoubleMatrix(double *x,const SparseDoubleMatrix *p,const SparseDoubleMatrix *pTrans,const SparseDoubleMatrix *l,const SparseDoubleMatrix *u, const double *b)
+{
+	double *y = getMempoolSet(sizeof(double)*u->totalCol);
+	double *pb = getMempoolSet(sizeof(double)*p->totalRow);
+
+	double sum = 0.0;
+	double element = 0.0;
+	
+	int i,k;
+	SparseDoubleElement *eachRow;
+	SparseDoubleElement *inRow;
+//	mulVecSparseDoubleMatrix(pb,p,b);
+	for(i=0;i<u->totalRow;i++)
+	{
+		int col = p->rowIndex[i]->rowLink->col;
+		pb[i] = b[col];
+	}
+	
+	// solve ly = pb
+	for(i=0;i<l->totalRow;i++)
+	{
+		sum = 0.0;
+		eachRow = l->rowIndex[i]->rowLink;
+		inRow = eachRow;
+		while(inRow->rowLink != NULL)
+		{
+			const double lij = inRow->data;
+			const double yj = y[inRow->col];
+			element = lij*yj;
+			sum = sum+element;
+			inRow = inRow->rowLink;
+		}
+		element = pb[i];
+		element = (element - sum)/inRow->data;
+		y[i] = element;
+	}
+	retMempoolSet(pb,sizeof(double)*p->totalRow);
+	pb = NULL;
+
+	// solve ux = y
+	for(i=u->totalRow-1;i>=0;i--)
+	{
+		sum = 0;
+		eachRow = u->rowIndex[i]->rowLink;
+		inRow = eachRow->rowLink;
+		while(inRow != NULL)
+		{
+			const double uij = inRow->data;
+			const double xj = x[inRow->col];
+			element = uij*xj;
+			sum = sum + element;
+			inRow = inRow->rowLink;
+		}
+		element = y[i];
+		element = (element-sum) / u->rowIndex[i]->rowLink->data;
+		x[i] = element;
+	}
+	double *xTemp = getMempoolSet(sizeof(double)*u->totalRow);
+	for(i=0;i<u->totalRow;i++)
+	{
+		int col = pTrans->rowIndex[i]->rowLink->col;
+		xTemp[i] = x[col];
+	}
+	memcpy(x,xTemp,sizeof(double)*u->totalRow);
+	retMempoolSet(xTemp,sizeof(double)*u->totalRow);
+//	mulVecSparseDoubleMatrix(x,pTrans,x);
+
+	retMempoolSet(y,sizeof(double)*u->totalCol);
+}
+
+
+
+// directly use luSparseQuadMatrix() and triSolveSparseQuadMatrix() to solve Ax = b
+void solveSparseDoubleMatrix(double *x,const SparseDoubleMatrix *a,const double *b)
+{
+	const int nodeNum = a->totalRow;
+	SparseDoubleMatrix *p = createSparseDoubleMatrix(nodeNum,nodeNum);
+	SparseDoubleMatrix *pTrans = createSparseDoubleMatrix(nodeNum,nodeNum);
+	SparseDoubleMatrix *l = createSparseDoubleMatrix(nodeNum,nodeNum);
+	SparseDoubleMatrix *u = createSparseDoubleMatrix(nodeNum,nodeNum);
+	SparseDoubleMatrix *aRefine = createSparseDoubleMatrix(nodeNum,nodeNum);
+
+	amdSparseDoubleMatrix(p,a);
+	transSparseDoubleMatrix(pTrans,p);
+	mulSparseDoubleMatrix(aRefine,p,a);
+	mulSparseDoubleMatrix(aRefine,aRefine,pTrans);
+
+	luSparseDoubleMatrix(l,u,aRefine);
+	triSolveSparseDoubleMatrix(x,p,pTrans,l,u,b);
+	freeSparseDoubleMatrix(p);
+	freeSparseDoubleMatrix(l);
+	freeSparseDoubleMatrix(u);
+	freeSparseDoubleMatrix(aRefine);
+	freeSparseDoubleMatrix(pTrans);
+}
+
+
+
+
+void solveWithPermutationSparseDoubleMatrix(double *x,const SparseDoubleMatrix *p, const SparseDoubleMatrix *pTrans, const SparseDoubleMatrix *a, const double *b)
+{
+	const int nodeNum = a->totalRow;
+	SparseDoubleMatrix *l = createSparseDoubleMatrix(nodeNum,nodeNum);
+	SparseDoubleMatrix *u = createSparseDoubleMatrix(nodeNum,nodeNum);
+	SparseDoubleMatrix *aRefine = createSparseDoubleMatrix(nodeNum,nodeNum);
+
+	mulSparseDoubleMatrix(aRefine,p,a);
+	mulSparseDoubleMatrix(aRefine,aRefine,pTrans);
+
+	luSparseDoubleMatrix(l,u,aRefine);
+	triSolveSparseDoubleMatrix(x,p,pTrans,l,u,b);
+	freeSparseDoubleMatrix(l);
+	freeSparseDoubleMatrix(u);
+	freeSparseDoubleMatrix(aRefine);
+}
+@
+
+
+1.8
+log
+@cholesky - right looking
+@
+text
+@d11 1
+a11 1
+void luSparseDoubleMatrix(SparseDoubleMatrix *l, SparseDoubleMatrix *u,const SparseDoubleMatrix *a,const int threadNum)
+d13 11
+a23 5
+	if(threadNum == 1)
+	{
+		// init & alloc
+		double scale = 0.0;
+		double element = 0.0;
+d25 2
+a26 2
+		clearSparseDoubleMatrix(l);
+		clearSparseDoubleMatrix(u);
+d28 32
+a59 15
+//		preproceesing
+		copySparseDoubleMatrix(u,a);
+		identitySparseDoubleMatrix(l);
+		int i,j;
+
+		// perform lu
+		for(i=0;i<u->totalRow-1;i++) // permutate
+		{
+//			fprintf(stderr,"row %d\n",i);
+			const SparseDoubleElement *aii = u->rowIndex[i]->rowLink;
+			const SparseDoubleElement *eachRow = aii->colLink;
+			while(eachRow != NULL) // update E
+			{
+				scale = eachRow->data / aii->data;
+				if(scale!=0)
+d61 4
+a64 9
+					setSparseDoubleMatrix(l,scale,eachRow->row,i);
+					SparseDoubleElement *inRow = aii->rowLink;
+					while(inRow != NULL)
+					{
+						element = scale * getSparseDoubleMatrix(u,i,inRow->col);
+						element = getSparseDoubleMatrix(u,eachRow->row,inRow->col) - element;
+						setSparseDoubleMatrix(u,element,eachRow->row,inRow->col);
+						inRow = inRow->rowLink;
+					}
+a65 3
+				const SparseDoubleElement *next = eachRow->colLink;
+				delSparseDoubleMatrix(u,eachRow->row,i);
+				eachRow = next;
+d67 3
+d72 4
+a75 4
+	else
+	{
+		fprintf(stderr,"need to use parallel_lu_double.c to active the parallel version\n");
+	}
+a280 50
+/*
+// a = plu
+void luSparseDoubleMatrix(SparseDoubleMatrix *l, SparseDoubleMatrix *u,const SparseDoubleMatrix *a,const int threadNum)
+{
+	if(threadNum == 1)
+	{
+		// init & alloc
+		SparseDoubleMatrix *aTemp = createSparseDoubleMatrix(a->totalRow,a->totalCol);
+		double scale = 0.0;
+		double element = 0.0;
+		
+		clearSparseDoubleMatrix(l);
+		clearSparseDoubleMatrix(u);
+
+//		preproceesing
+		copySparseDoubleMatrix(aTemp,a);
+		identitySparseDoubleMatrix(l);
+		int i,j;
+
+		// perform lu
+		for(i=0;i<aTemp->totalRow-1;i++) // permutate
+		{
+			fprintf(stderr,"row %d\n",i);
+			const SparseDoubleElement *aii = aTemp->rowIndex[i]->rowLink;
+			const SparseDoubleElement *eachRow = aii->colLink;
+			while(eachRow != NULL) // update E
+			{
+				scale = eachRow->data / aii->data;
+				if(scale!=0)
+				{
+					setSparseDoubleMatrix(l,scale,eachRow->row,i);
+					SparseDoubleElement *inRow = aii->rowLink;
+					while(inRow != NULL)
+					{
+						element = scale * getSparseDoubleMatrix(aTemp,i,inRow->col);
+						element = getSparseDoubleMatrix(aTemp,eachRow->row,inRow->col) - element;
+						setSparseDoubleMatrix(aTemp,element,eachRow->row,inRow->col);
+						inRow = inRow->rowLink;
+					}
+				}
+				const SparseDoubleElement *next = eachRow->colLink;
+				delSparseDoubleMatrix(aTemp,eachRow->row,i);
+				eachRow = next;
+			}
+		}
+		copySparseDoubleMatrix(u,aTemp);
+		freeSparseDoubleMatrix(aTemp);
+	}
+}
+*/
+d360 1
+a360 1
+void solveSparseDoubleMatrix(double *x,const SparseDoubleMatrix *a,const double *b, const int threadNum)
+d374 1
+a374 1
+	luSparseDoubleMatrix(l,u,aRefine,threadNum);
+d386 1
+a386 1
+void solveWithPermutationSparseDoubleMatrix(double *x,const SparseDoubleMatrix *p, const SparseDoubleMatrix *pTrans, const SparseDoubleMatrix *a, const double *b, const int threadNum)
+d396 1
+a396 1
+	luSparseDoubleMatrix(l,u,aRefine,threadNum);
+@
+
+
+1.7
+log
+@update chol --- more efficient ~ still need to further check the accuracy
+@
+text
+@d185 1
+d187 1
+a187 1
+	// perfom sparse cholesky
+d203 11
+a213 2
+		/*
+		for(k=0;k<j;k++)
+d215 7
+a221 2
+			const double ajk = getSparseDoubleMatrix(l,j,k);
+			if(ajk != 0) cmod(l,j,k);
+a222 2
+		*/
+		cdiv(l,j);
+d225 1
+@
+
+
+1.6
+log
+@more efficient triangular solver
+@
+text
+@d101 2
+a102 3
+	const double newAjj= sqrt(getSparseDoubleMatrix(l,j,j));
+	setSparseDoubleMatrix(l,newAjj,j,j);
+	const SparseDoubleElement *ajjPtr = l->colIndex[j]->colLink;
+d108 2
+a109 2
+		const double aij = getSparseDoubleMatrix(l,row,j);
+		setSparseDoubleMatrix(l,aij/ajj,row,j);
+d117 1
+a117 1
+static void cmod(SparseDoubleMatrix *l,const int j,const int k)
+a119 1
+	const double ajk = getSparseDoubleMatrix(l,j,k);
+d131 1
+d141 12
+a152 5
+			const double aij = getSparseDoubleMatrix(l,i,j);
+			const double aik = getSparseDoubleMatrix(l,i,k);
+			const double result = aij-aik*ajk;
+			if(result!=0) setSparseDoubleMatrix(l,result,i,j);
+			else delSparseDoubleMatrix(l,i,j);
+d189 1
+d194 1
+d198 1
+a198 2
+				const double ajk = getSparseDoubleMatrix(l,j,k);
+				if(ajk != 0) cmod(l,j,k);
+@
+
+
+1.5
+log
+@fix the bug of cholesky
+@
+text
+@d309 6
+a314 1
+	mulVecSparseDoubleMatrix(pb,p,b);
+d334 2
+d355 9
+a363 2
+
+	mulVecSparseDoubleMatrix(x,pTrans,x);
+a365 1
+	retMempoolSet(pb,sizeof(double)*p->totalRow);
+@
+
+
+1.4
+log
+@*** empty log message ***
+@
+text
+@d99 56
+d159 2
+a160 2
+	int i;
+	for(i=0;i<a->totalRow;a++)
+d179 1
+d181 1
+a181 1
+	for(i=0;i<a->totalCol;a++) // for each column i
+d183 20
+a202 1
+
+d205 1
+@
+
+
+1.3
+log
+@change to cholesky, but the cholesky has some bug
+@
+text
+@d101 29
+a156 17
+	// fake implement
+	SparseDoubleMatrix *u = createSparseDoubleMatrix(a->totalRow,a->totalCol);
+	luSparseDoubleMatrix(l,u,a,1);
+	int i;
+	for(i=0;i<l->totalRow;i++)
+	{
+		SparseDoubleElement *eachRow = l->rowIndex[i]->rowLink;
+		int row = i;
+		while(eachRow!=NULL)
+		{
+			const int col = eachRow->col;
+			const double elementL = eachRow->data;
+			const double elementR = getSparseDoubleMatrix(u,col,row);
+			setSparseDoubleMatrix(l,sqrt(elementL*elementR),row,col);
+			eachRow = eachRow->rowLink;
+		}
+	}
+d158 1
+a158 1
+	freeSparseDoubleMatrix(u);
+@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@d63 35
+d101 28
+d131 15
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d54 15
+d71 4
+@
