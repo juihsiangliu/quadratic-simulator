@@ -1,0 +1,216 @@
+head	1.6;
+access;
+symbols;
+locks
+	d96041:1.6; strict;
+comment	@ * @;
+
+
+1.6
+date	2010.11.14.12.54.27;	author d96041;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	2010.09.07.13.05.10;	author d96041;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	2010.06.28.12.54.39;	author r97124;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	2010.06.25.03.01.13;	author r97124;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2010.06.24.09.04.14;	author r97124;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2010.06.24.08.20.53;	author r97124;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.6
+log
+@*** empty log message ***
+@
+text
+@#ifndef PARALLEL_LU_DOUBLE_H
+#define PARALLEL_LU_DOUBLE_H
+
+#include <pthread.h>
+#include <assert.h>
+#include <gdsl_types.h>
+#include <gdsl_queue.h>
+#include <gsl_math.h>
+#include "sparsedoublematrix.h"
+#include "partition_double.h"
+#include "mempool.h"
+#include "parallel_lu_common.h"
+#include "mymatrix.h"
+
+
+struct ALUDouble
+{
+	SparseDoubleMatrix *a;
+	SparseDoubleMatrix *l;
+	SparseDoubleMatrix *u;
+};
+
+typedef struct ALUDouble ALUDouble;
+
+
+
+
+struct ParallelDoneListDouble
+{
+	int orderList[15];
+	int done[16]; // set in 1 base
+	int eachNodeCurrentDone[16]; // set in 1 base and init all elements to zero
+
+	ALUDouble **alu; // the same as it in ParallelLUDoubleShareData
+	const ParallelETree *tree; // the same as it in ParallelLUDoubleShareData
+	const SparseDoubleMatrix *a; // the same as it in ParallelLUDoubleShareData
+};
+
+typedef struct ParallelDoneListDouble ParallelDoneListDouble;
+
+
+
+
+struct ParallelLUDoubleShareData
+{
+	ParallelDoneListDouble *doneList;
+	ToDoList *todolist;	
+
+	// internal used mutex and cv
+	pthread_mutex_t *mutex;
+	pthread_cond_t *cond;
+
+	int pid;
+	int N;
+	int rootCurrentBegin;
+	int currentEnd;
+};
+
+typedef struct ParallelLUDoubleShareData ParallelLUDoubleShareData;
+
+
+struct ThreadHandlerParDouble
+{
+	ParallelLUDoubleShareData **list;
+	int threadNum;
+};
+
+typedef struct ThreadHandlerParDouble ThreadHandlerParDouble;
+
+void parallelLUDouble(SparseDoubleMatrix *l,SparseDoubleMatrix *u, ParallelETree *tree, const SparseDoubleMatrix *a, const int threadNum);
+
+
+
+
+
+
+
+
+#endif
+@
+
+
+1.5
+log
+@ok version
+@
+text
+@d4 2
+d13 1
+a13 1
+
+d26 18
+d46 11
+a56 4
+	ALUDouble **alu;
+	gdsl_queue_t freeSinkList; 
+	ParallelETree *tree;
+	const SparseDoubleMatrix *a;
+d61 9
+d72 7
+@
+
+
+1.4
+log
+@*** empty log message ***
+@
+text
+@a11 3
+// assmume the elimination tree can be splitted into two parts
+// the LU can be performed in differently parallely
+// then the interconnection can be updated in later stage
+a12 15
+/*
+struct Par_2_thread
+{
+	int rowPart1Begin;
+	int rowPart1End;
+	int rowPart2Begin;
+	int rowPart2End;
+	int rowCrossBegin;
+	int rowCrossEnd;
+};
+
+typedef struct Par_2_thread Par_2_thread;
+
+void luSparseDoubleMatrix_2_thread(SparseDoubleMatrix *l,SparseDoubleMatrix *u,const SparseDoubleMatrix *a,const Par_2_thread boundary);
+*/
+@
+
+
+1.3
+log
+@*** empty log message ***
+@
+text
+@a7 1
+#include "parallel.h"
+d10 1
+d32 19
+@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@d9 1
+a9 1
+#include "partition.h"
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 2
+a2 2
+#ifndef PARALLEL_LU_H
+#define PARALLEL_LU_H
+d10 1
+d33 1
+a33 1
+void testParallelLU(SparseDoubleMatrix *l,SparseDoubleMatrix *u, ParallelETree *tree, const SparseDoubleMatrix *a, const int threadNum);
+@

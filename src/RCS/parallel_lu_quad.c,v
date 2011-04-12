@@ -1,0 +1,4311 @@
+head	1.40;
+access;
+symbols;
+locks
+	d96041:1.40; strict;
+comment	@ * @;
+
+
+1.40
+date	2010.11.14.12.48.53;	author d96041;	state Exp;
+branches;
+next	1.39;
+
+1.39
+date	2010.10.27.13.18.26;	author d96041;	state Exp;
+branches;
+next	1.38;
+
+1.38
+date	2010.10.23.10.47.11;	author d96041;	state Exp;
+branches;
+next	1.37;
+
+1.37
+date	2010.10.18.11.50.59;	author d96041;	state Exp;
+branches;
+next	1.36;
+
+1.36
+date	2010.10.15.09.14.49;	author d96041;	state Exp;
+branches;
+next	1.35;
+
+1.35
+date	2010.10.14.13.54.48;	author d96041;	state Exp;
+branches;
+next	1.34;
+
+1.34
+date	2010.10.13.13.17.16;	author d96041;	state Exp;
+branches;
+next	1.33;
+
+1.33
+date	2010.10.12.12.16.13;	author d96041;	state Exp;
+branches;
+next	1.32;
+
+1.32
+date	2010.10.11.10.39.03;	author d96041;	state Exp;
+branches;
+next	1.31;
+
+1.31
+date	2010.10.09.09.10.45;	author d96041;	state Exp;
+branches;
+next	1.30;
+
+1.30
+date	2010.10.08.12.57.41;	author d96041;	state Exp;
+branches;
+next	1.29;
+
+1.29
+date	2010.10.07.13.26.22;	author d96041;	state Exp;
+branches;
+next	1.28;
+
+1.28
+date	2010.10.06.14.04.02;	author d96041;	state Exp;
+branches;
+next	1.27;
+
+1.27
+date	2010.09.17.08.56.55;	author d96041;	state Exp;
+branches;
+next	1.26;
+
+1.26
+date	2010.09.16.12.47.02;	author d96041;	state Exp;
+branches;
+next	1.25;
+
+1.25
+date	2010.09.07.13.04.39;	author d96041;	state Exp;
+branches;
+next	1.24;
+
+1.24
+date	2010.09.02.12.31.23;	author d96041;	state Exp;
+branches;
+next	1.23;
+
+1.23
+date	2010.08.30.14.08.23;	author d96041;	state Exp;
+branches;
+next	1.22;
+
+1.22
+date	2010.08.25.12.54.50;	author d96041;	state Exp;
+branches;
+next	1.21;
+
+1.21
+date	2010.08.24.12.29.00;	author d96041;	state Exp;
+branches;
+next	1.20;
+
+1.20
+date	2010.08.22.12.59.37;	author d96041;	state Exp;
+branches;
+next	1.19;
+
+1.19
+date	2010.08.18.13.20.17;	author d96041;	state Exp;
+branches;
+next	1.18;
+
+1.18
+date	2010.08.17.14.34.33;	author d96041;	state Exp;
+branches;
+next	1.17;
+
+1.17
+date	2010.08.17.12.38.33;	author d96041;	state Exp;
+branches;
+next	1.16;
+
+1.16
+date	2010.08.14.09.27.17;	author d96041;	state Exp;
+branches;
+next	1.15;
+
+1.15
+date	2010.08.13.13.17.09;	author d96041;	state Exp;
+branches;
+next	1.14;
+
+1.14
+date	2010.08.12.14.59.39;	author d96041;	state Exp;
+branches;
+next	1.13;
+
+1.13
+date	2010.08.10.12.57.05;	author d96041;	state Exp;
+branches;
+next	1.12;
+
+1.12
+date	2010.08.02.12.08.24;	author d96041;	state Exp;
+branches;
+next	1.11;
+
+1.11
+date	2010.07.30.13.16.58;	author d96041;	state Exp;
+branches;
+next	1.10;
+
+1.10
+date	2010.07.28.12.19.03;	author d96041;	state Exp;
+branches;
+next	1.9;
+
+1.9
+date	2010.07.27.12.36.20;	author d96041;	state Exp;
+branches;
+next	1.8;
+
+1.8
+date	2010.07.22.12.47.46;	author d96041;	state Exp;
+branches;
+next	1.7;
+
+1.7
+date	2010.07.20.12.04.08;	author d96041;	state Exp;
+branches;
+next	1.6;
+
+1.6
+date	2010.07.19.12.07.50;	author d96041;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	2010.07.17.09.04.42;	author d96041;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	2010.06.29.13.35.35;	author d96041;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	2010.06.28.12.54.28;	author r97124;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2010.06.24.11.55.02;	author r97124;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2010.06.24.09.04.09;	author r97124;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.40
+log
+@ok version
+back up here, bcz the "u" matrix in alu list has too many redundant
+does not need to save the whole u
+@
+text
+@#include "parallel_lu_quad.h"
+
+
+static int flagEachNode[17]; // one based
+// the node[i] is ready to be processed
+
+
+// =================================================
+
+
+static pthread_mutex_t donelist_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static ParallelDoneList *createDoneList(ALUQuad **alu, const ParallelETree *tree, const SparseQuadMatrix *a,const int gvNum) // assume the # of lead of tree node is 8
+{
+	ParallelDoneList *ptr = getMempoolSet(sizeof(ParallelDoneList));
+
+	// the order used for checking in setNode()
+	ptr->orderList[0] = 8;
+	ptr->orderList[1] = 9;
+	ptr->orderList[2] = 4;
+	ptr->orderList[3] = 10;
+	ptr->orderList[4] = 11;
+	ptr->orderList[5] = 5;
+	ptr->orderList[6] = 2;
+	ptr->orderList[7] = 12;
+	ptr->orderList[8] = 13;
+	ptr->orderList[9] = 6;
+	ptr->orderList[10] = 14;
+	ptr->orderList[11] = 15;
+	ptr->orderList[12] = 7;
+	ptr->orderList[13] = 3;
+	ptr->orderList[14] = 1;
+
+	memset(ptr->done,0,sizeof(int)*16);
+	memset(ptr->eachNodeCurrentDone,0,sizeof(int)*16);
+
+	ptr->gvNum = gvNum;
+	ptr->alu = alu;
+	ptr->tree = tree;
+	ptr->a = a;
+	return ptr;
+}
+
+
+
+
+static void freeParallelDoneList(ParallelDoneList *ptr)
+{
+	retMempoolSet(ptr,sizeof(ParallelDoneList));
+}
+
+
+
+
+static int checkNextParallelDoneList(ParallelDoneList *ptr,const int current)
+{
+	int nextIndex = ptr->orderList[current+1];
+	return ptr->done[nextIndex];
+}
+
+
+
+static void set_1_sort_ParallelDoneList(ParallelDoneList *ptr,ToDoList *todoList,const int index)
+{
+	pthread_mutex_lock(&donelist_mutex);
+	ptr->done[index] = 1;
+
+	if(index%2 == 1) // index is in the right
+	{
+		if(ptr->done[index-1] == 1) // left is complete
+		{
+			sortParentsToHeadToDoList(todoList,index);
+		}
+	}
+	else
+	{
+		sortParentsToHeadToDoList(todoList,index);
+	}
+	pthread_mutex_unlock(&donelist_mutex);
+}
+
+
+
+
+static int isCompleteParallelDoneList(ParallelDoneList *doneList)
+{
+	pthread_mutex_lock(&donelist_mutex);
+	int ret = 1;
+	int i;
+	for(i=1;i<16;i++)
+	{
+		if(doneList->done[i] == 0)
+		{
+			ret = 0;
+			break;
+		}
+	}
+	pthread_mutex_unlock(&donelist_mutex);
+	return ret;
+}
+
+
+// =================================================
+
+
+
+static ParallelLUQuadShareDataNew *createParallelLUQuadShareDataNew(ParallelDoneList *doneList, ToDoList *todolist, const int pid, const int N,const int rootCurrentBegin,const int currentEnd,pthread_mutex_t *mutex, pthread_cond_t *cond)
+{
+	ParallelLUQuadShareDataNew *ptr = getMempoolSet(sizeof(ParallelLUQuadShareDataNew));
+
+	ptr->doneList = doneList;
+	ptr->todolist = todolist;
+	ptr->pid = pid;
+	ptr->N = N;
+	ptr->rootCurrentBegin = rootCurrentBegin;
+	ptr->currentEnd = currentEnd;
+	ptr->mutex = mutex;
+	ptr->cond = cond;
+
+	return ptr;
+}
+
+
+
+static void freeParallelLUQuadShareDataNew(ParallelLUQuadShareDataNew *ptr)
+{
+	retMempoolSet(ptr,sizeof(ParallelLUQuadShareDataNew));
+}
+
+
+
+
+
+// =================================================
+
+
+
+
+static ALUQuad **createALUList(const ParallelETree *tree,const int totalRow,const int gvNum)
+{
+	int i;
+	ALUQuad **aluList = getMempoolSet(sizeof(ALUQuad *)*tree->size);
+	memset(aluList,0,sizeof(ALUQuad *)*tree->size);
+	for(i=0;i<tree->size;i++)
+	{
+		if(tree->node[i] == NULL)
+		{
+			continue;
+		}
+		else
+		{
+			aluList[i] = getPidMempoolSet(sizeof(ALUQuad),i);
+			int aRow = tree->node[i]->rowEnd - tree->node[i]->rowBegin + 1;
+			int aCol;
+			if(tree->node[i]->type == cross)
+			{
+				const int leftIndex = 2*i;
+				const int rightIndex = 2*i + 1;
+				aRow = aRow + (tree->node[i]->doneRowEnd - tree->node[i]->doneRowBegin +1);
+				if(i%2==0) // left node
+				{
+					int parentIndex = GSL_MAX(1,i/2);
+					if( parentIndex == 1) // it is already root
+					{
+						aCol = totalRow;
+					}
+					else
+					{
+						aCol = aluList[parentIndex]->a->totalCol;
+					}
+				}
+				else // right node
+				{
+					aCol = totalRow - tree->node[i]->doneRowBegin;
+				}
+
+				aluList[i]->a = createPidSparseQuadMatrix(aRow,aCol,gvNum,i);
+				aluList[i]->l = createPidSparseQuadMatrix(aRow,aRow,gvNum,i);
+				aluList[i]->u = createPidSparseQuadMatrix(aRow,aCol,gvNum,i);
+			}
+			else if(tree->node[i]->type == lu)
+			{
+				if(i%2 == 0) // left node
+				{
+					const int rootIndex = i/2;
+					aCol = totalRow - tree->node[i]->rowBegin;
+				}
+				else
+				{
+					aRow = tree->node[i]->rowEnd - tree->node[i]->rowBegin + 1;
+					const int rootIndex = i/2;
+					const int leftIndex = i-1;
+					const int leftRow = tree->node[leftIndex]->rowEnd - tree->node[leftIndex]->rowBegin + 1;
+					const int rootCol = tree->node[rootIndex]->rowEnd - tree->node[rootIndex]->doneRowBegin + 1;
+					aCol = totalRow - tree->node[i]->rowBegin;
+				}
+				
+				aluList[i]->a = createPidSparseQuadMatrix(aRow,aCol,gvNum,i);
+				aluList[i]->l = createPidSparseQuadMatrix(aRow,aRow,gvNum,i);
+				aluList[i]->u = createPidSparseQuadMatrix(aRow,aCol,gvNum,i);
+			}
+			else
+			{
+				fprintf(stderr,"in ALU list: undefine\n");
+				exit(0);
+			}
+
+//			fprintf(stderr,"i:%d, rowBegin:%d, rowEnd:%d, aRow:%d, aCol:%d\n",i,tree->node[i]->rowBegin,tree->node[i]->rowEnd,aRow,aCol);
+			fprintf(stderr,"i:%d, uRow:%d, uCol:%d\n",i,aluList[i]->u->totalRow,aluList[i]->u->totalCol);
+		}
+	}
+	return aluList;
+}
+
+
+
+static void freePidALU(ALUQuad *alu,const int pid)
+{
+	if(alu!=NULL)
+	{
+		freePidSparseQuadMatrix(alu->a,pid);
+		freePidSparseQuadMatrix(alu->l,pid);
+		freePidSparseQuadMatrix(alu->u,pid);
+		retPidMempoolSet(alu,sizeof(ALUQuad),pid);
+	}
+}
+
+
+// =================================================
+
+
+static void *threadLU(void *par)
+{
+	time_t t1,t2;
+	ParallelLUQuadShareDataNew *ptr = (ParallelLUQuadShareDataNew *)par;
+	const int treeNodeID = ptr->N;	
+	ALUQuad **alu = ptr->doneList->alu;
+
+	flagEachNode[treeNodeID] = 1;
+	pthread_cond_wait(ptr->cond,ptr->mutex);
+
+	fprintf(stderr,"lu begin: %d\n",treeNodeID);
+	time(&t1);
+	const int pid = ptr->pid;
+
+	luPidSparseQuadMatrix(alu[treeNodeID]->l,alu[treeNodeID]->u,alu[treeNodeID]->a,pid);
+	time(&t2);
+	fprintf(stderr,"lu %d time:%g\n",treeNodeID,difftime(t2,t1));
+
+	set_1_sort_ParallelDoneList(ptr->doneList,ptr->todolist,treeNodeID);
+	decActiveThread();
+}
+
+
+
+
+static pthread_mutex_t setnode_merge_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+
+static void *setNode(void *par)
+{
+	int i,j;
+	time_t t1,t2,t3;
+	time(&t1);
+	ParallelLUQuadShareDataNew *ptr = (ParallelLUQuadShareDataNew *)par;
+	ParallelDoneList *doneList = ptr->doneList;
+	ToDoList *todolist = ptr->todolist;
+
+	flagEachNode[ptr->N] = 1;
+	pthread_cond_wait(ptr->cond,ptr->mutex);
+	fprintf(stderr,"setNode begin: %d\n",ptr->N);
+
+	const int N = ptr->N;
+	const int L = 2*N;
+	const int R = L+1;
+	const int rootCurrentBegin = ptr->rootCurrentBegin;
+	const int currentEnd = ptr->currentEnd;;
+	const int pid = ptr->pid;
+
+	const int gvNum = doneList->gvNum;
+	const int rowLink = doneList->tree->node[N]->rowEnd - doneList->tree->node[N]->rowBegin +1;
+	const int colLink = doneList->alu[N]->u->totalCol;
+	const int rowCrossBegin = doneList->tree->node[N]->rowBegin;
+	const int rowCrossEnd = doneList->tree->node[N]->rowEnd;
+	const int currentDoneRowBegin = doneList->tree->node[N]->doneRowBegin;
+	
+	SparseQuadMatrix *l_link = createPidSparseQuadMatrix(rowLink,doneList->alu[N]->l->totalCol,gvNum,pid);
+	SparseQuadMatrix *u_link = createPidSparseQuadMatrix(rowLink,colLink,gvNum,pid);
+	getSubPidSparseQuadMatrix(u_link,doneList->a,rowCrossBegin,currentDoneRowBegin,rowCrossEnd,doneList->a->totalCol-1,pid);
+
+	SparseQuadElement **l_link_row_cache = getPidMempoolSet(sizeof(SparseQuadElement *)*l_link->totalRow,pid);
+	SparseQuadElement **l_link_col_cache = getPidMempoolSet(sizeof(SparseQuadElement *)*l_link->totalCol,pid);
+	SparseQuadElement **u_link_row_cache = getPidMempoolSet(sizeof(SparseQuadElement *)*u_link->totalRow,pid);
+	SparseQuadElement **u_link_col_cache = getPidMempoolSet(sizeof(SparseQuadElement *)*u_link->totalCol,pid);
+	for(i=0;i<l_link->totalRow;i++) l_link_row_cache[i] = NULL;
+	for(i=0;i<l_link->totalCol;i++) l_link_col_cache[i] = NULL;
+	for(i=0;i<u_link->totalRow;i++) u_link_row_cache[i] = NULL;
+	for(i=0;i<u_link->totalCol;i++) u_link_col_cache[i] = NULL;
+
+	int rootCurrent = rootCurrentBegin;
+	int current = -1;
+	int base = 0;
+	while(current != currentEnd)
+	{
+		if(checkNextParallelDoneList(doneList,rootCurrent) == 1)
+		{
+			rootCurrent++;
+			current = doneList->orderList[rootCurrent];
+			printf("setNode %d process node %d\n",N,current);
+			const int left = current*2;
+			const int right = left+1;
+			int offset; // how many rows of the cross term or the lu term
+			SparseQuadMatrix *partial_u;
+			if(current > 7)
+			{
+				offset = doneList->alu[current]->u->totalRow;
+				partial_u = doneList->alu[current]->u;
+			}
+			else
+			{
+				const int leftRow = doneList->alu[left]->u->totalRow;
+				const int rightRow = doneList->alu[right]->u->totalRow;
+				offset = doneList->alu[current]->u->totalRow - leftRow - rightRow;
+				const int aTotal = doneList->a->totalCol;
+				const SparseQuadMatrix *const uTemp = doneList->alu[current]->u;
+				partial_u = createPidSparseQuadMatrix(uTemp->totalRow-leftRow-rightRow,doneList->a->totalCol-base,gvNum,pid);
+				getSubPidSparseQuadMatrix(partial_u,uTemp,leftRow+rightRow, leftRow+rightRow,uTemp->totalRow-1,uTemp->totalCol-1,pid);
+			}
+//			printf("current = %d, offset =%d, row=%d\n",current,offset,doneList->alu[current]->u->totalRow);
+
+			int i,j;
+			QuadElement *scale = createPidQuadElement(gvNum,pid);
+			QuadElement *newLinkU = createPidQuadElement(gvNum,pid);
+			QuadElement *scaledPartialUData = createPidQuadElement(gvNum,pid);
+			for(i=0;i<partial_u->totalRow;i++) // sweep partial_u row by row
+			{
+				for(j=0;j<u_link->totalRow;j++) // sweep u_link row by row
+				{
+					const SparseQuadElement *partial_u_ptr = partial_u->rowIndex[i]->rowLink;
+					if(partial_u_ptr == NULL)
+					{
+						printf(" ------- WTF!!!!!! -----------\n");
+					}
+					divPidQuadElement(scale,getSparseQuadMatrix(u_link,j,base+i),partial_u_ptr->data,pid);
+					if(isEmptyQuadElement(scale))
+					{
+						delPidSparseQuadMatrix(u_link,j,base + i,pid);
+						continue;
+					}
+//					setPidSparseQuadMatrix(l_link,scale,j,base + partial_u_ptr->col,pid);
+					setFastPidSparseQuadMatrix(l_link,scale,j,base + partial_u_ptr->col,&l_link_row_cache[j],&l_link_col_cache[partial_u_ptr->col],pid);
+					
+					SparseQuadElement *linkUPtr = NULL;
+					while(partial_u_ptr!=NULL) // sweep each element in partial row i
+					{
+						const int row = j;
+						const int col = base + partial_u_ptr->col;
+						const QuadElement *const data = partial_u_ptr->data;
+						const QuadElement *linkU = getFastRowSparseQuadMatrix(u_link,row,col,&linkUPtr);
+
+						mulPidQuadElement(scaledPartialUData,scale,data,pid);
+						subQuadElement(newLinkU,linkU,scaledPartialUData);
+						setFastPidSparseQuadMatrix(u_link,newLinkU,row,col,&u_link_row_cache[row],&u_link_col_cache[col],pid);
+						partial_u_ptr = partial_u_ptr->rowLink;
+					}
+					delPidSparseQuadMatrix(u_link,j,base + i,pid);
+				}
+			}
+			freePidQuadElement(scaledPartialUData,pid);
+			freePidQuadElement(newLinkU,pid);
+			freePidQuadElement(scale,pid);
+			
+			base = base + offset;
+			if(current <=7)
+			{
+				freePidSparseQuadMatrix(partial_u,pid);
+			}
+			doneList->eachNodeCurrentDone[N] = current;
+//			printf("%d - currentDone:%d\n",N,ptr->currentDone);
+		}
+		else
+		{
+			printf("node %d is going to sleep\n",N);
+			decActiveThread();
+			flagEachNode[N] = 1;
+			pushBackToDoList(todolist,N);
+//			pushByOrderToDoList(todolist,N);
+
+			pthread_cond_wait(ptr->cond,ptr->mutex);
+			printf("node %d is continue to work\n",N);
+			time(&t1);
+		}
+	}
+
+
+	if(N==1)
+	{
+		for(i=4;i<doneList->tree->size;i++)
+		{
+			freePidALU(doneList->alu[i],i);
+		}
+	}
+
+	time(&t2);
+	printf("set node %d skew time:%g\n",N,difftime(t2,t1));
+	printf("node %d enter the final stage\n",N);
+//	printf("base = %d, row = %d, col =%d\n",base,u_link->totalRow,u_link->totalCol);
+	
+	QuadElement *scale = createPidQuadElement(gvNum,pid);
+	QuadElement *newLinkU = createPidQuadElement(gvNum,pid);
+	QuadElement *scaledPartialUData = createPidQuadElement(gvNum,pid);
+	for(i=0;i<u_link->totalRow;i++) // for each row in link (to be pivot row)
+	{
+		for(j=i+1;j<u_link->totalRow;j++) // for each row under the pivot row
+		{
+			const SparseQuadElement *pivotRowPtr = u_link->rowIndex[i]->rowLink;
+			divPidQuadElement(scale,getSparseQuadMatrix(u_link,j,base+i),pivotRowPtr->data,pid);
+			if(isEmptyQuadElement(scale))
+			{
+				delPidSparseQuadMatrix(u_link,j,base + i,pid);
+				continue;
+			}
+			setFastPidSparseQuadMatrix(l_link,scale,j,pivotRowPtr->col,&l_link_row_cache[j],&l_link_col_cache[pivotRowPtr->col],pid);
+
+			SparseQuadElement *linkUPtr = NULL;
+			while(pivotRowPtr!=NULL) // for each col in pivot row
+			{
+				const int row = j;
+				const int col = pivotRowPtr->col;
+				const QuadElement * const data = pivotRowPtr->data;
+				const QuadElement *linkU = getFastRowSparseQuadMatrix(u_link,row,col,&linkUPtr);
+
+				mulPidQuadElement(scaledPartialUData,scale,data,pid);
+				subQuadElement(newLinkU,linkU,scaledPartialUData);
+				setFastPidSparseQuadMatrix(u_link,newLinkU,row,col,&u_link_row_cache[row],&u_link_col_cache[col],pid);
+				pivotRowPtr = pivotRowPtr->rowLink;
+			}
+			delPidSparseQuadMatrix(u_link,j,base + i,pid);
+		}
+	}
+	freePidQuadElement(scaledPartialUData,pid);
+	freePidQuadElement(newLinkU,pid);
+	freePidQuadElement(scale,pid);
+	
+	retPidMempoolSet(l_link_row_cache,sizeof(SparseQuadElement *)*l_link->totalRow,pid);
+	retPidMempoolSet(l_link_col_cache,sizeof(SparseQuadElement *)*l_link->totalCol,pid);
+	retPidMempoolSet(u_link_row_cache,sizeof(SparseQuadElement *)*u_link->totalRow,pid);
+	retPidMempoolSet(u_link_col_cache,sizeof(SparseQuadElement *)*u_link->totalCol,pid);
+
+
+	// ====================================================================
+	QuadElement *element = createPidQuadElement(gvNum,pid);
+	setQuadElement(element,1.0,0,NULL,NULL);
+	for(i=0;i<l_link->totalRow;i++)
+	{
+		const int row = i;
+		const int col = doneList->alu[L]->l->totalRow + doneList->alu[R]->l->totalRow + i;
+		setPidSparseQuadMatrix(l_link,element,row,col,pid);
+	}
+	freePidQuadElement(element,pid);
+
+//	pthread_mutex_lock(&setnode_merge_mutex);
+	mergePidSparseQuadMatrix(doneList->alu[N]->l,doneList->alu[L]->l,doneList->alu[N]->l->totalRow,doneList->alu[N]->l->totalCol,0,0,N);
+	mergePidSparseQuadMatrix(doneList->alu[N]->l,doneList->alu[R]->l,doneList->alu[N]->l->totalRow,doneList->alu[N]->l->totalCol,doneList->alu[L]->l->totalRow,doneList->alu[L]->l->totalRow,N);
+	mergePidSparseQuadMatrix(doneList->alu[N]->l,l_link,doneList->alu[N]->l->totalRow,doneList->alu[N]->l->totalCol,doneList->alu[L]->l->totalRow+doneList->alu[R]->l->totalRow,0,N);
+//	pthread_mutex_unlock(&setnode_merge_mutex);
+	freePidSparseQuadMatrix(l_link,pid);
+
+//	pthread_mutex_lock(&setnode_merge_mutex);
+	mergePidSparseQuadMatrix(doneList->alu[N]->u,doneList->alu[L]->u,doneList->alu[N]->u->totalRow,doneList->alu[N]->u->totalCol,0,0,N);
+	mergePidSparseQuadMatrix(doneList->alu[N]->u,doneList->alu[R]->u,doneList->alu[N]->u->totalRow,doneList->alu[N]->u->totalCol,doneList->alu[L]->u->totalRow,doneList->alu[L]->u->totalRow,N);
+	mergePidSparseQuadMatrix(doneList->alu[N]->u,u_link,doneList->alu[N]->u->totalRow,doneList->alu[N]->u->totalCol,doneList->alu[L]->u->totalRow+doneList->alu[R]->u->totalRow,0,N);
+//	pthread_mutex_unlock(&setnode_merge_mutex);
+	freePidSparseQuadMatrix(u_link,pid);
+	
+	if(N==1)
+	{
+		freePidALU(doneList->alu[2],2);
+		freePidALU(doneList->alu[3],3);
+	}
+	
+	// ====================================================================
+
+	time(&t3);
+	printf("node %d final time: %g\n",N,difftime(t3,t2));
+
+			
+	set_1_sort_ParallelDoneList(doneList,ptr->todolist,N);
+	decActiveThread();
+	clearPidMempoolSet(pid);
+	doneList->eachNodeCurrentDone[N] = N;
+	pthread_exit(0);
+}
+
+
+
+// ======================================================================================
+
+
+
+static void *setNodeMix(void *par)
+{
+	int i,j,k;
+	time_t t1,t2,t3;
+	time(&t1);
+	ParallelLUQuadShareDataNew *ptr = (ParallelLUQuadShareDataNew *)par;
+	ParallelDoneList *doneList = ptr->doneList;
+	ToDoList *todolist = ptr->todolist;
+
+	flagEachNode[ptr->N] = 1;
+	pthread_cond_wait(ptr->cond,ptr->mutex);
+	fprintf(stderr,"setNode begin: %d\n",ptr->N);
+
+	const int N = ptr->N;
+	const int L = 2*N;
+	const int R = L+1;
+	const int rootCurrentBegin = ptr->rootCurrentBegin;
+	const int currentEnd = ptr->currentEnd;;
+	const int pid = ptr->pid;
+
+	const int gvNum = doneList->gvNum;
+	const int rowLink = doneList->tree->node[N]->rowEnd - doneList->tree->node[N]->rowBegin +1;
+	const int colLink = doneList->alu[N]->u->totalCol;
+	const int rowCrossBegin = doneList->tree->node[N]->rowBegin;
+	const int rowCrossEnd = doneList->tree->node[N]->rowEnd;
+	const int currentDoneRowBegin = doneList->tree->node[N]->doneRowBegin;
+
+	SparseQuadMatrix *link = createSparseQuadMatrix(rowLink,colLink,gvNum);
+	getSubSparseQuadMatrix(link,doneList->a,rowCrossBegin,currentDoneRowBegin,rowCrossEnd,doneList->a->totalCol-1);
+	freeSparseQuadMatrix(link);
+	
+	SparseQuadMatrix *l_link = createPidSparseQuadMatrix(rowLink,doneList->alu[N]->l->totalCol,gvNum,pid);
+	SparseQuadMatrix *u_link = createPidSparseQuadMatrix(rowLink,colLink,gvNum,pid);
+	copyPidSparseQuadMatrix(u_link,link,pid);
+
+	int rootCurrent = rootCurrentBegin;
+	int current = -1;
+	int base = 0;
+	while(current != currentEnd)
+	{
+		if(checkNextParallelDoneList(doneList,rootCurrent) == 1)
+		{
+			rootCurrent++;
+			current = doneList->orderList[rootCurrent];
+			printf("setNode %d process node %d\n",N,current);
+			const int left = current*2;
+			const int right = left+1;
+			int offset; // how many rows of the cross term or the lu term
+			SparseQuadMatrix *partial_u;
+			if(current > 7)
+			{
+				offset = doneList->alu[current]->u->totalRow;
+				partial_u = doneList->alu[current]->u;
+			}
+			else
+			{
+				const int leftRow = doneList->alu[left]->u->totalRow;
+				const int rightRow = doneList->alu[right]->u->totalRow;
+				offset = doneList->alu[current]->u->totalRow - leftRow - rightRow;
+				const int aTotal = doneList->a->totalCol;
+				const SparseQuadMatrix *const uTemp = doneList->alu[current]->u;
+				partial_u = createSparseQuadMatrix(uTemp->totalRow-leftRow-rightRow,doneList->a->totalCol-base,gvNum);
+				getSubSparseQuadMatrix(partial_u,uTemp,leftRow+rightRow, leftRow+rightRow,uTemp->totalRow-1,uTemp->totalCol-1);
+			}
+//			printf("current = %d, offset =%d, row=%d\n",current,offset,doneList->alu[current]->u->totalRow);
+
+			int i,j;
+			QuadElement *scale = createPidQuadElement(gvNum,pid);
+			QuadElement *newLinkU = createPidQuadElement(gvNum,pid);
+			QuadElement *scaledPartialUData = createPidQuadElement(gvNum,pid);
+
+			for(i=0;i<partial_u->totalRow;i++) // sweep partial_u row by row
+			{
+				for(j=0;j<u_link->totalRow;j++) // sweep u_link row by row
+				{
+					const SparseQuadElement *partial_u_ptr = partial_u->rowIndex[i]->rowLink;
+					if(partial_u_ptr == NULL)
+					{
+						printf(" ------- WTF!!!!!! -----------\n");
+					}
+					divPidQuadElement(scale,getSparseQuadMatrix(u_link,j,base+i),partial_u_ptr->data,pid);
+					if(isEmptyQuadElement(scale))
+					{
+						delPidSparseQuadMatrix(u_link,j,base + i,pid);
+						continue;
+					}
+					setPidSparseQuadMatrix(l_link,scale,j,base + partial_u_ptr->col,pid);
+
+					SparseQuadElement *linkUPtr = NULL;
+					while(partial_u_ptr!=NULL) // sweep each element in partial row i
+					{
+						const int row = j;
+						const int col = base + partial_u_ptr->col;
+						const QuadElement *const data = partial_u_ptr->data;
+//						const QuadElement *const linkU = getSparseQuadMatrix(u_link,row,col);
+//
+						linkUPtr = getPtrFastRowSparseQuadMatrix(u_link,row,col,&linkUPtr);
+						QuadElement *linkU = NULL;
+						if(linkUPtr!=NULL) linkU = linkUPtr->data;
+
+						mulPidQuadElement(scaledPartialUData,scale,data,pid);
+						subQuadElement(newLinkU,linkU,scaledPartialUData);
+//						setPidSparseQuadMatrix(u_link,newLinkU,row,col,pid);
+						setFastPidSparseQuadMatrix(u_link,newLinkU,row,col,&linkUPtr,&linkUPtr,pid);
+						partial_u_ptr = partial_u_ptr->rowLink;
+					}
+					delPidSparseQuadMatrix(u_link,j,base + i,pid);
+				}
+			}
+			freePidQuadElement(scaledPartialUData,pid);
+			freePidQuadElement(newLinkU,pid);
+			freePidQuadElement(scale,pid);
+			
+			base = base + offset;
+			if(current <=7)
+			{
+				freeSparseQuadMatrix(partial_u);
+			}
+		}
+		else
+		{
+			printf("node %d is going to sleep\n",N);
+			decActiveThread();
+			flagEachNode[N] = 1;
+//			pushBackToDoList(todolist,N);
+			pushByOrderToDoList(todolist,N);
+
+			pthread_cond_wait(ptr->cond,ptr->mutex);
+			printf("node %d is continue to work\n",N);
+			time(&t1);
+		}
+	}
+
+	time(&t2);
+	printf("set node %d skew time:%g\n",N,difftime(t2,t1));
+	printf("node %d enter the final stage\n",N);
+
+	QuadMatrix *l_link_dense = createPidQuadMatrix(rowLink,doneList->alu[N]->l->totalCol,gvNum,pid);
+	QuadMatrix *u_link_dense = createPidQuadMatrix(rowLink,colLink,gvNum,pid);
+	toDensePidSparseQuadMatrix(l_link_dense,l_link,pid);
+	toDensePidSparseQuadMatrix(u_link_dense,u_link,pid);
+
+	QuadElement *scale = createPidQuadElement(gvNum,pid);
+	QuadElement *newLinkU = createPidQuadElement(gvNum,pid);
+	QuadElement *scaledPartialUData = createPidQuadElement(gvNum,pid);
+	for(i=0;i<u_link_dense->row;i++) // for each row in link (to be pivot row)
+	{
+		for(j=i+1;j<u_link_dense->row;j++) // for each row under the pivot row
+		{
+			const QuadElement *const pivot = getPtrEntryQuadMatrix(u_link_dense,i,base+i);	
+			const QuadElement *const eachRowHeadData = getPtrEntryQuadMatrix(u_link_dense,j,base+i);
+			divPidQuadElement(scale,eachRowHeadData,pivot,pid);
+			if(isEmptyQuadElement(scale))
+			{
+				delPidQuadMatrix(u_link_dense,j,base + i,pid);
+				continue;
+			}
+			setPidQuadMatrix(l_link_dense,scale,j,base+i,pid);
+			for(k=base;k<u_link_dense->col;k++)
+			{
+				const QuadElement * const data1 = getPtrEntryQuadMatrix(u_link_dense,i,k);
+				const QuadElement * const data2 = getPtrEntryQuadMatrix(u_link_dense,j,k);
+				mulPidQuadElement(scaledPartialUData,scale,data1,pid);
+				subQuadElement(newLinkU,data2,scaledPartialUData);
+				setPidQuadMatrix(u_link_dense,newLinkU,j,k,pid);
+			}
+			delPidQuadMatrix(u_link_dense,j,base+i,pid);
+		}
+	}
+	freePidQuadElement(scaledPartialUData,pid);
+	freePidQuadElement(newLinkU,pid);
+	freePidQuadElement(scale,pid);
+
+	quad2PidSparseQuadMatrix(l_link,l_link_dense,pid);
+	quad2PidSparseQuadMatrix(u_link,u_link_dense,pid);
+	freePidQuadMatrix(l_link_dense,pid);
+	freePidQuadMatrix(u_link_dense,pid);
+
+	// ====================================================================
+	pthread_mutex_lock(&setnode_merge_mutex);
+	QuadElement *element = createPidQuadElement(gvNum,pid);
+	setQuadElement(element,1.0,0,NULL,NULL);
+	for(i=0;i<l_link->totalRow;i++)
+	{
+		const int row = i;
+		const int col = doneList->alu[L]->l->totalRow + doneList->alu[R]->l->totalRow + i;
+		setPidSparseQuadMatrix(l_link,element,row,col,pid);
+	}
+	freePidQuadElement(element,pid);
+
+	mergeSparseQuadMatrix(doneList->alu[N]->l,doneList->alu[L]->l,doneList->alu[N]->l->totalRow,doneList->alu[N]->l->totalCol,0,0);
+	mergeSparseQuadMatrix(doneList->alu[N]->l,doneList->alu[R]->l,doneList->alu[N]->l->totalRow,doneList->alu[N]->l->totalCol,doneList->alu[L]->l->totalRow,doneList->alu[L]->l->totalRow);
+	mergeSparseQuadMatrix(doneList->alu[N]->l,l_link,doneList->alu[N]->l->totalRow,doneList->alu[N]->l->totalCol,doneList->alu[L]->l->totalRow+doneList->alu[R]->l->totalRow,0);
+	pthread_mutex_unlock(&setnode_merge_mutex);
+	freePidSparseQuadMatrix(l_link,pid);
+
+	pthread_mutex_lock(&setnode_merge_mutex);
+	mergeSparseQuadMatrix(doneList->alu[N]->u,doneList->alu[L]->u,doneList->alu[N]->u->totalRow,doneList->alu[N]->u->totalCol,0,0);
+	mergeSparseQuadMatrix(doneList->alu[N]->u,doneList->alu[R]->u,doneList->alu[N]->u->totalRow,doneList->alu[N]->u->totalCol,doneList->alu[L]->u->totalRow,doneList->alu[L]->u->totalRow);
+	mergeSparseQuadMatrix(doneList->alu[N]->u,u_link,doneList->alu[N]->u->totalRow,doneList->alu[N]->u->totalCol,doneList->alu[L]->u->totalRow+doneList->alu[R]->u->totalRow,0);
+	pthread_mutex_unlock(&setnode_merge_mutex);
+	freePidSparseQuadMatrix(u_link,pid);
+	
+	if(N==1)
+	{
+		for(i=2;i<doneList->tree->size;i++)
+		{
+			freeALU(doneList->alu[i]);
+		}
+	}
+	
+	// ====================================================================
+
+	time(&t3);
+	printf("node %d final time: %g\n",N,difftime(t3,t2));
+
+			
+	set_1_sort_ParallelDoneList(doneList,ptr->todolist,N);
+	decActiveThread();
+
+	pthread_exit(0);
+}
+
+
+// ======================================================================================
+
+
+static int isAllAncestorsDone(ParallelDoneList *doneList, const int currentFinishNode)
+{
+	 int ret = 1;
+	 int current = currentFinishNode;
+	 while(current>1)
+	 {
+	 	if(doneList->done[current]!=1)
+		{
+			ret = 0;
+			break;
+		}
+	 	current = current/2;
+	 }
+	 return ret;
+}
+
+
+
+static int indexInOrderList(ParallelDoneList *doneList, const int key)
+{
+	int i;
+	int index = -1;
+	for(i=0;i<15;i++)
+	{
+		if(key == doneList->orderList[i])
+		{
+			index = i;
+		}
+	}
+	return index;
+}
+
+
+
+
+static int isAllAncestorsPartialDone(ParallelDoneList *doneList,const int currentFinishNode)
+{
+	int ret = 1;
+	int current = currentFinishNode;
+	int baseIndex = indexInOrderList(doneList,currentFinishNode);
+	while(current>0)
+	{
+		int targetIndex = indexInOrderList(doneList,doneList->eachNodeCurrentDone[current]);
+//		printf("current:%d , currentFinishNode:%d\n",current,currentFinishNode);
+		if(targetIndex < baseIndex)
+		{
+			ret = 0;
+			break;
+		}
+		current = current/2;
+	}
+//	printf("ret=%d\n",ret);
+	return ret;
+}
+
+
+
+
+static int freeALU_flag[16] = {0};
+
+static void freeUnNecessaryALU(ParallelDoneList *doneList, const int currentFinishNode)
+{
+//	if(currentFinishNode > 7) return;
+
+	int i = 0;
+	int current = doneList->orderList[i];
+	while(1)
+	{
+		int parent = current/2;
+		if(freeALU_flag[current]!=1 && doneList->done[parent]==1 && isAllAncestorsPartialDone(doneList,parent)) // not free yet
+		{
+			freePidALU(doneList->alu[current],current);
+			clearPidMempoolSet(current);
+			freeALU_flag[current] = 1;
+			printf("free alu current:%d\n",current);
+		}
+
+		if(current == currentFinishNode)
+		{
+			break;
+		}
+		else
+		{
+			i++;
+			current = doneList->orderList[i];	
+		}
+	}
+	
+}
+
+
+
+
+static void freeExcept1_2and3(ParallelDoneList *doneList)
+{
+	int i;
+	for(i=4;i<doneList->tree->size;i++)
+	{
+		if(freeALU_flag[i]!=1)
+		{
+			freePidALU(doneList->alu[i],i);
+			clearPidMempoolSet(i);
+			freeALU_flag[i] = 1;
+		}
+	}
+}
+
+
+
+
+
+static void *setNodeDense(void *par)
+{
+	int i,j,k;
+	time_t t1,t2,t3;
+	time(&t1);
+	ParallelLUQuadShareDataNew *ptr = (ParallelLUQuadShareDataNew *)par;
+	ParallelDoneList *doneList = ptr->doneList;
+	ToDoList *todolist = ptr->todolist;
+
+	flagEachNode[ptr->N] = 1;
+	pthread_cond_wait(ptr->cond,ptr->mutex);
+	fprintf(stderr,"setNode begin: %d\n",ptr->N);
+
+	const int N = ptr->N;
+	const int L = 2*N;
+	const int R = L+1;
+	const int rootCurrentBegin = ptr->rootCurrentBegin;
+	const int currentEnd = ptr->currentEnd;;
+	const int pid = ptr->pid;
+
+	const int gvNum = doneList->gvNum;
+	const int rowLink = doneList->tree->node[N]->rowEnd - doneList->tree->node[N]->rowBegin +1;
+	const int colLink = doneList->alu[N]->u->totalCol;
+	const int rowCrossBegin = doneList->tree->node[N]->rowBegin;
+	const int rowCrossEnd = doneList->tree->node[N]->rowEnd;
+	const int currentDoneRowBegin = doneList->tree->node[N]->doneRowBegin;
+
+	SparseQuadMatrix *l_link = createPidSparseQuadMatrix(rowLink,doneList->alu[N]->l->totalCol,gvNum,pid);
+	SparseQuadMatrix *u_link = createPidSparseQuadMatrix(rowLink,colLink,gvNum,pid);
+	getSubPidSparseQuadMatrix(u_link,doneList->a,rowCrossBegin,currentDoneRowBegin,rowCrossEnd,doneList->a->totalCol-1,pid);
+
+	QuadMatrix *l_link_dense = createPidQuadMatrix(rowLink,doneList->alu[N]->l->totalCol,gvNum,pid);
+	QuadMatrix *u_link_dense = createPidQuadMatrix(rowLink,colLink,gvNum,pid);
+	toDensePidSparseQuadMatrix(l_link_dense,l_link,pid);
+	clearPidSparseQuadMatrix(l_link,pid);
+	toDensePidSparseQuadMatrix(u_link_dense,u_link,pid);
+	clearPidSparseQuadMatrix(u_link,pid);
+	
+	int rootCurrent = rootCurrentBegin;
+	int current = -1;
+	int base = 0;
+	while(current != currentEnd)
+	{
+		if(checkNextParallelDoneList(doneList,rootCurrent) == 1)
+		{
+			rootCurrent++;
+			current = doneList->orderList[rootCurrent];
+			printf("setNode %d process node %d\n",N,current);
+			const int left = current*2;
+			const int right = left+1;
+			int offset; // how many rows of the cross term or the lu term
+			SparseQuadMatrix *partial_u;
+			if(current > 7)
+			{
+				offset = doneList->alu[current]->u->totalRow;
+				partial_u = doneList->alu[current]->u;
+			}
+			else
+			{
+				const int leftRow = doneList->alu[left]->u->totalRow;
+				const int rightRow = doneList->alu[right]->u->totalRow;
+				offset = doneList->alu[current]->u->totalRow - leftRow - rightRow;
+				const int aTotal = doneList->a->totalCol;
+				const SparseQuadMatrix *const uTemp = doneList->alu[current]->u;
+				partial_u = createPidSparseQuadMatrix(uTemp->totalRow-leftRow-rightRow,doneList->a->totalCol-base,gvNum,pid);
+				getSubPidSparseQuadMatrix(partial_u,uTemp,leftRow+rightRow, leftRow+rightRow,uTemp->totalRow-1,uTemp->totalCol-1,pid);
+			}
+
+			int i,j;
+			QuadElement *scale = createPidQuadElement(gvNum,pid);
+			QuadElement *newLinkU = createPidQuadElement(gvNum,pid);
+			QuadElement *scaledPartialUData = createPidQuadElement(gvNum,pid);
+			for(i=0;i<partial_u->totalRow;i++) // sweep partial_u row by row
+			{
+				for(j=0;j<u_link_dense->row;j++) // sweep u_link_dense row by row
+				{
+					const SparseQuadElement *partial_u_ptr = partial_u->rowIndex[i]->rowLink;
+					if(partial_u_ptr == NULL)
+					{
+						printf(" ------- WTF!!!!!! -----------\n");
+					}
+					divPidQuadElement(scale,getPtrEntryQuadMatrix(u_link_dense,j,base+i),partial_u_ptr->data,pid);
+					if(isEmptyQuadElement(scale))
+					{
+						delPidQuadMatrix(u_link_dense,j,base + i,pid);
+						continue;
+					}
+					setPidQuadMatrix(l_link_dense,scale,j,base + partial_u_ptr->col,pid);
+					while(partial_u_ptr!=NULL) // sweep each element in partial row i
+					{
+						const int row = j;
+						const int col = base + partial_u_ptr->col;
+						const QuadElement *const data = partial_u_ptr->data;
+						
+						QuadElement *linkU = NULL;
+						linkU = getPtrEntryQuadMatrix(u_link_dense,row,col);
+						mulPidQuadElement(scaledPartialUData,scale,data,pid);
+						subQuadElement(newLinkU,linkU,scaledPartialUData);
+						setPidQuadMatrix(u_link_dense,newLinkU,row,col,pid);
+						partial_u_ptr = partial_u_ptr->rowLink;
+					}
+					delPidQuadMatrix(u_link_dense,j,base + i,pid);
+				}
+			}
+			freePidQuadElement(scaledPartialUData,pid);
+			freePidQuadElement(newLinkU,pid);
+			freePidQuadElement(scale,pid);
+			
+			base = base + offset;
+			if(current <=7)
+			{
+				freePidSparseQuadMatrix(partial_u,pid);
+			}
+			doneList->eachNodeCurrentDone[N] = current;
+			if(N==1)
+			{
+				freeUnNecessaryALU(doneList,current);
+			}
+		}
+		else
+		{
+			printf("node %d is going to sleep\n",N);
+			decActiveThread();
+			flagEachNode[N] = 1;
+			pushBackToDoList(todolist,N);
+//			pushByOrderToDoList(todolist,N);
+
+			pthread_cond_wait(ptr->cond,ptr->mutex);
+			printf("node %d is continue to work\n",N);
+			time(&t1);
+		}
+	}
+
+	if(N==1)
+	{
+		freeExcept1_2and3(doneList);
+	}
+
+	time(&t2);
+	printf("set node %d skew time:%g\n",N,difftime(t2,t1));
+	printf("node %d enter the final stage\n",N);
+
+	QuadElement *scale = createPidQuadElement(gvNum,pid);
+	QuadElement *newLinkU = createPidQuadElement(gvNum,pid);
+	QuadElement *scaledPartialUData = createPidQuadElement(gvNum,pid);
+	for(i=0;i<u_link_dense->row;i++) // for each row in link (to be pivot row)
+	{
+		for(j=i+1;j<u_link_dense->row;j++) // for each row under the pivot row
+		{
+			const QuadElement *const pivot = getPtrEntryQuadMatrix(u_link_dense,i,base+i);	
+			const QuadElement *const eachRowHeadData = getPtrEntryQuadMatrix(u_link_dense,j,base+i);
+			divPidQuadElement(scale,eachRowHeadData,pivot,pid);
+			if(isEmptyQuadElement(scale))
+			{
+				delPidQuadMatrix(u_link_dense,j,base + i,pid);
+				continue;
+			}
+			setPidQuadMatrix(l_link_dense,scale,j,base+i,pid);
+			for(k=base;k<u_link_dense->col;k++)
+			{
+				const QuadElement * const data1 = getPtrEntryQuadMatrix(u_link_dense,i,k);
+				const QuadElement * const data2 = getPtrEntryQuadMatrix(u_link_dense,j,k);
+				mulPidQuadElement(scaledPartialUData,scale,data1,pid);
+				subQuadElement(newLinkU,data2,scaledPartialUData);
+				setPidQuadMatrix(u_link_dense,newLinkU,j,k,pid);
+			}
+			delPidQuadMatrix(u_link_dense,j,base+i,pid);
+		}
+	}
+	freePidQuadElement(scaledPartialUData,pid);
+	freePidQuadElement(newLinkU,pid);
+	freePidQuadElement(scale,pid);
+
+	delQuad2PidSparseQuadMatrix(l_link,l_link_dense,pid);
+	delQuad2PidSparseQuadMatrix(u_link,u_link_dense,pid);
+	freePidQuadMatrix(l_link_dense,pid);
+	freePidQuadMatrix(u_link_dense,pid);
+
+	// ====================================================================
+	QuadElement *element = createPidQuadElement(gvNum,pid);
+	setQuadElement(element,1.0,0,NULL,NULL);
+	for(i=0;i<l_link->totalRow;i++)
+	{
+		const int row = i;
+		const int col = doneList->alu[L]->l->totalRow + doneList->alu[R]->l->totalRow + i;
+		setPidSparseQuadMatrix(l_link,element,row,col,pid);
+	}
+	freePidQuadElement(element,pid);
+
+	time_t begin,end;
+
+	time(&begin);
+//	pthread_mutex_lock(&setnode_merge_mutex);
+	mergePidSparseQuadMatrix(doneList->alu[N]->l,doneList->alu[L]->l,doneList->alu[N]->l->totalRow,doneList->alu[N]->l->totalCol,0,0,N);
+	mergePidSparseQuadMatrix(doneList->alu[N]->l,doneList->alu[R]->l,doneList->alu[N]->l->totalRow,doneList->alu[N]->l->totalCol,doneList->alu[L]->l->totalRow,doneList->alu[L]->l->totalRow,N);
+	mergePidSparseQuadMatrix(doneList->alu[N]->l,l_link,doneList->alu[N]->l->totalRow,doneList->alu[N]->l->totalCol,doneList->alu[L]->l->totalRow+doneList->alu[R]->l->totalRow,0,N);
+//	pthread_mutex_unlock(&setnode_merge_mutex);
+	freePidSparseQuadMatrix(l_link,pid);
+
+//	pthread_mutex_lock(&setnode_merge_mutex);
+	mergePidSparseQuadMatrix(doneList->alu[N]->u,doneList->alu[L]->u,doneList->alu[N]->u->totalRow,doneList->alu[N]->u->totalCol,0,0,N);
+	mergePidSparseQuadMatrix(doneList->alu[N]->u,doneList->alu[R]->u,doneList->alu[N]->u->totalRow,doneList->alu[N]->u->totalCol,doneList->alu[L]->u->totalRow,doneList->alu[L]->u->totalRow,N);
+	mergePidSparseQuadMatrix(doneList->alu[N]->u,u_link,doneList->alu[N]->u->totalRow,doneList->alu[N]->u->totalCol,doneList->alu[L]->u->totalRow+doneList->alu[R]->u->totalRow,0,N);
+//	pthread_mutex_unlock(&setnode_merge_mutex);
+	freePidSparseQuadMatrix(u_link,pid);
+	time(&end);
+	printf("merge time:%g\n",difftime(end,begin));
+	
+	if(N==1)
+	{
+		freePidALU(doneList->alu[2],2);
+		freePidALU(doneList->alu[3],3);
+		clearPidMempoolSet(2);
+		clearPidMempoolSet(3);
+	}
+	// ====================================================================
+
+	time(&t3);
+	printf("node %d final time: %g\n",N,difftime(t3,t2));
+
+	set_1_sort_ParallelDoneList(doneList,ptr->todolist,N);
+	decActiveThread();
+	clearPidMempoolSet(pid);
+	doneList->eachNodeCurrentDone[N] = N;
+	pthread_exit(0);
+}
+
+
+
+// =================================================
+
+// =================================================
+
+
+static void threadHandlerNew(void *par)
+{
+	struct ThreadHandlerPar *thread_handle_ptr = par;
+
+	ParallelLUQuadShareDataNew **list = thread_handle_ptr->list;
+	ParallelDoneList *doneList = list[0]->doneList;
+	ToDoList *todolist = list[0]->todolist; 
+	const int threadNum = thread_handle_ptr->threadNum;
+
+	dumpToDoList(stdout,todolist);
+	initActiveThread();
+	while(!isCompleteParallelDoneList(doneList))
+	{
+		while(getActiveThread() < threadNum)
+		{
+			const int indexInToDoList = getFirstToDoList(todolist);
+			if(indexInToDoList == -1) // already empty
+			{
+				if(isCompleteParallelDoneList(doneList))
+				{
+					break;
+				}
+				else
+				{
+					sleep(1);
+				}
+			}
+			else
+			{
+				safeWaitFlagMatrix(flagEachNode,indexInToDoList);
+				printf("wake up node %d\n",indexInToDoList);	
+				incActiveThread();
+				dumpToDoList(stdout,todolist);
+				pthread_cond_signal(list[indexInToDoList-1]->cond);
+			}
+		}
+		usleep(500000);
+//		usleep(100000);
+	}
+}
+
+
+
+
+
+
+
+// =================================================
+
+
+void parallelLUQuad(SparseQuadMatrix *l,SparseQuadMatrix *u, ParallelETree *tree, const SparseQuadMatrix *a, const int threadNum)
+{
+	// pre-processing
+	int i;
+	int status;
+	memset(flagEachNode,0,sizeof(int)*17);
+
+	getDoneRowInfoNew(tree);
+	
+	ALUQuad **aluList = createALUList(tree,a->totalRow,a->gvNum);
+	for(i=0;i<tree->size;i++)
+	{
+		if(tree->node[i]!=NULL)
+		{
+			if(tree->node[i]->type == lu)
+			{
+				const int ltRowSrc = tree->node[i]->rowBegin;
+				const int ltColSrc = ltRowSrc;
+				const int rbRowSrc = tree->node[i]->rowEnd;
+				const int rbColSrc = ltColSrc + aluList[i]->u->totalCol -1 ;
+				getSubPidSparseQuadMatrix(aluList[i]->a,a,ltRowSrc,ltColSrc,rbRowSrc,rbColSrc,i);
+			}
+		}
+	}
+	ParallelDoneList *doneList = createDoneList(aluList,tree,a,a->gvNum);
+	ToDoList *todolist = createToDoList();
+
+	// set the par entries ... used for the parallel lu
+	const int treeSize = 15;
+	// mutex and cv list for node
+	pthread_mutex_t mutex[treeSize];
+	pthread_cond_t cond[treeSize];
+	for(i=0;i<treeSize;i++)
+	{
+		pthread_mutex_init(&mutex[i],NULL);
+		pthread_cond_init(&cond[i],NULL);
+	}
+
+	ParallelLUQuadShareDataNew **parList = getMempoolSet(sizeof(ParallelLUQuadShareDataNew *)*treeSize);
+	if(threadNum == 1)
+	{
+		//used for cross nodes
+		parList[0] = createParallelLUQuadShareDataNew(doneList,todolist,1,1,-1, 3,&mutex[0],&cond[0]);
+		parList[1] = createParallelLUQuadShareDataNew(doneList,todolist,1,2,-1, 5,&mutex[1],&cond[1]);
+		parList[2] = createParallelLUQuadShareDataNew(doneList,todolist,1,3, 6, 7,&mutex[2],&cond[2]);
+		parList[3] = createParallelLUQuadShareDataNew(doneList,todolist,1,4,-1, 9,&mutex[3],&cond[3]);
+		parList[4] = createParallelLUQuadShareDataNew(doneList,todolist,1,5, 2,11,&mutex[4],&cond[4]);
+		parList[5] = createParallelLUQuadShareDataNew(doneList,todolist,1,6, 6,13,&mutex[5],&cond[5]);
+		parList[6] = createParallelLUQuadShareDataNew(doneList,todolist,1,7, 9,15,&mutex[6],&cond[6]);
+		// used for "LU node"
+		for(i=7;i<15;i++) parList[i] = createParallelLUQuadShareDataNew(doneList,todolist,1,i+1,0,0,&mutex[i],&cond[i]);
+	}
+	else
+	{
+		//used for cross nodes
+		parList[0] = createParallelLUQuadShareDataNew(doneList,todolist,1,1,-1, 3,&mutex[0],&cond[0]);
+		parList[1] = createParallelLUQuadShareDataNew(doneList,todolist,2,2,-1, 5,&mutex[1],&cond[1]);
+		parList[2] = createParallelLUQuadShareDataNew(doneList,todolist,3,3, 6, 7,&mutex[2],&cond[2]);
+		parList[3] = createParallelLUQuadShareDataNew(doneList,todolist,4,4,-1, 9,&mutex[3],&cond[3]);
+		parList[4] = createParallelLUQuadShareDataNew(doneList,todolist,5,5, 2,11,&mutex[4],&cond[4]);
+		parList[5] = createParallelLUQuadShareDataNew(doneList,todolist,6,6, 6,13,&mutex[5],&cond[5]);
+		parList[6] = createParallelLUQuadShareDataNew(doneList,todolist,7,7, 9,15,&mutex[6],&cond[6]);
+		// used for "LU node"
+		for(i=7;i<15;i++) parList[i] = createParallelLUQuadShareDataNew(doneList,todolist,i+1,i+1,0,0,&mutex[i],&cond[i]);
+	}
+
+	pthread_t pid[15];
+	for(i=0;i<15;i++)
+	{
+		if(i==0) pthread_create(&pid[i],NULL,setNodeDense,parList[i]);
+		else if(i<7) pthread_create(&pid[i],NULL,setNode,parList[i]);
+		else pthread_create(&pid[i],NULL,threadLU,parList[i]);
+	}
+	sleep(1);
+
+	struct ThreadHandlerPar thread_handle;
+	thread_handle.list = parList;
+	thread_handle.threadNum = threadNum;
+	threadHandlerNew(&thread_handle);
+
+	// copy to the result
+	copySparseQuadMatrix(l,parList[0]->doneList->alu[1]->l);
+	copySparseQuadMatrix(u,parList[0]->doneList->alu[1]->u);
+
+//	for(i=0;i<tree->size;i++) freeALU(aluList[i]);
+	for(i=0;i<2;i++) freePidALU(aluList[i],i);
+	clearPidMempoolSet(1);
+	for(i=0;i<treeSize;i++) freeParallelLUQuadShareDataNew(parList[i]);
+	retMempoolSet(parList,treeSize*sizeof(ParallelLUQuadShareDataNew*));
+	retMempoolSet(aluList,sizeof(ALUQuad *)*tree->size);
+	freeParallelDoneList(doneList);
+	freeToDoList(todolist);
+}
+
+@
+
+
+1.39
+log
+@ok versio ~ free mem asap
+@
+text
+@d5 1
+a5 332
+
+
+//static int nodeOrder[16] = {0,1,2,9,3,4,10,13,5,6,7,8,11,12,14,15};
+
+// with the post order (8 9 4 10 11 5 2 12 13 6 14 15 7 3 1)
+static int nodeOrder[16] = {0,15,7,14,3,6,10,13,1,2,4,5,8,9,11,12};
+
+// with the order (8 10 9 11 12 14 13 15 4 5 6 7 2 3 1)
+//static int nodeOrder[16] = {0,15,13,14,9,10,11,12,1,5,2,6,3,7,4,8};
+
+// with the order (8 10 12 14 9 11 13 15 4 5 6 7 2 3 1)
+// static int nodeOrder[16] = {0,15,13,14,9,10,11,12,1,3,2,4,5,7,6,8};
+
+// with the order (8 9 10 11 12 13 14 15 4 5 6 7 2 3 1)
+//static int nodeOrder[16] = {0,15,13,14,9,10,11,12,1,2,3,4,5,6,7,8};
+
+// with the order (8 10 12 14 9 11 13 15 4 6 5 7 2 3 1)
+//static int nodeOrder[16] = {0,15,13,14,9,11,10,12,1,5,2,6,3,7,4,8};
+// =================================================
+
+
+static void safeWaitFlagMatrix(int *flag,int index)
+{
+	while(flag[index]!=1)
+	{
+		usleep(10000);
+	}
+	flag[index] = 0;
+	usleep(10000);
+	return;
+}
+
+
+// =================================================
+static int activeThread = 0;
+
+static pthread_mutex_t activeThread_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+
+static void incActiveThread()
+{
+	pthread_mutex_lock(&activeThread_mutex);
+	activeThread = activeThread+1;
+	pthread_mutex_unlock(&activeThread_mutex);
+}
+
+
+static void decActiveThread()
+{
+	pthread_mutex_lock(&activeThread_mutex);
+	activeThread = activeThread-1;
+	pthread_mutex_unlock(&activeThread_mutex);
+}
+
+
+// =================================================
+
+static pthread_mutex_t todolist_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static ToDoList *createToDoList(void)
+{
+	ToDoList *ptr = getMempoolSet(sizeof(ToDoList));
+	ptr->currentSize = 15;
+
+	// the init list
+	ptr->list[0] = 8;
+	ptr->list[1] = 9;
+	ptr->list[2] = 4;
+	ptr->list[3] = 10;
+
+	ptr->list[4] = 11;
+	ptr->list[5] = 5;
+	ptr->list[6] = 2;
+	ptr->list[7] = 12;
+
+	ptr->list[8] = 13;
+	ptr->list[9] = 6;
+	ptr->list[10] = 14;
+	ptr->list[11] = 15;
+
+	ptr->list[12] = 7;
+	ptr->list[13] = 3;
+	ptr->list[14] = 1;
+	return ptr;
+}
+
+
+
+static void freeToDoList(ToDoList *ptr)
+{
+	retMempoolSet(ptr,sizeof(ToDoList));
+}
+
+
+
+
+// NOT thread safe
+// N is zero based
+static void pushNthToDoList(ToDoList *ptr,const int N, const int data)
+{
+	if(ptr->currentSize == 15)
+	{
+		printf("error!! todolist is full\n");
+	}
+	else
+	{
+		if(N == 0) // into first
+		{
+			memmove(&ptr->list[1],&ptr->list[0],sizeof(int)*(ptr->currentSize));
+			ptr->list[0] = data;
+			ptr->currentSize++;
+		}
+		else if(N == ptr->currentSize) // into end
+		{
+			ptr->list[ptr->currentSize] = data;
+			ptr->currentSize++;
+		}
+		else
+		{
+			memmove(&ptr->list[N+1],&ptr->list[N],sizeof(int)*(ptr->currentSize-N));
+			ptr->list[N] = data;
+			ptr->currentSize++;
+		}
+	}
+}
+
+
+
+
+
+static void pushBackToDoList(ToDoList *ptr, int data)
+{
+	pthread_mutex_lock(&todolist_mutex);
+	if(ptr->currentSize == 15)
+	{
+		printf("error!! todolist is full\n");
+	}
+	else
+	{
+		ptr->list[ptr->currentSize] = data;
+		ptr->currentSize++;
+	}
+	pthread_mutex_unlock(&todolist_mutex);
+}
+
+
+
+
+static void pushByOrderToDoList(ToDoList *ptr, int data)
+{
+	pthread_mutex_lock(&todolist_mutex);
+	if(ptr->currentSize == 15)
+	{
+		printf("error!! todolist is full\n");
+	}
+	else
+	{
+		if(ptr->currentSize == 0)
+		{
+			ptr->list[ptr->currentSize] = data;
+			ptr->currentSize++;
+		}
+		else
+		{
+			int i = 0;
+			int dataOrder = nodeOrder[data];
+			/*
+			for(i=0;i<ptr->currentSize;i++)
+			{
+				int order =  nodeOrder[ptr->list[i]];
+				if(dataOrder < order) break;
+			}
+			*/
+			for(i=ptr->currentSize-1;i>-1;i--)
+			{
+				int order =  nodeOrder[ptr->list[i]];
+				if(dataOrder > order) break;
+			}
+			pushNthToDoList(ptr,i+1,data);
+		}
+	}
+	pthread_mutex_unlock(&todolist_mutex);
+}
+
+
+
+
+
+
+// NOT thread safe
+static void pushFirstToDoList(ToDoList *ptr, int data)
+{
+	if(ptr->currentSize == 15)
+	{
+		printf("error!! todolist is full\n");
+	}
+	else
+	{
+		memmove(&ptr->list[1],&ptr->list[0],sizeof(int)*(ptr->currentSize));
+		ptr->list[0] = data;
+		ptr->currentSize++;
+	}
+}
+
+
+
+
+
+// NOT thread safe
+// N is zero based
+static int getNthToDoList(ToDoList *ptr,const int N)
+{
+	int ret = -1;
+	if(N == 0) // the fist one
+	{
+		if(ptr->currentSize == 0)
+		{
+	//		printf("error!! todolist is empty\n");
+		}
+		else
+		{
+			ret = ptr->list[0];
+			ptr->currentSize--;
+			memmove(&ptr->list[0],&ptr->list[1],sizeof(int)*ptr->currentSize);
+		}	
+	}
+	else if(N == ptr->currentSize-1) // the last one
+	{
+		ret = ptr->list[N];
+		ptr->currentSize--;
+	}
+	else
+	{
+		if(ptr->currentSize == 0)
+		{
+			printf("error get Nth!! todolist is empty\n");
+		}
+		else
+		{
+			ret = ptr->list[N];
+			memmove(&ptr->list[N],&ptr->list[N+1],sizeof(int)*(ptr->currentSize-N+1));
+			ptr->currentSize--;
+		}
+	}
+	return ret;
+}
+
+
+
+
+static int getFirstToDoList(ToDoList *ptr)
+{
+	pthread_mutex_lock(&todolist_mutex);
+	int ret = getNthToDoList(ptr,0);
+	pthread_mutex_unlock(&todolist_mutex);
+	return ret;
+}
+
+
+
+
+static int compareInt (const void * a, const void * b)
+{
+	int indexA = *(int *)a;
+	int indexB = *(int *)b;
+	return nodeOrder[indexA] - nodeOrder[indexB];
+}
+
+
+
+
+static void sortToDoList(ToDoList *ptr)
+{
+	pthread_mutex_lock(&todolist_mutex);
+	if(ptr->currentSize > 0)
+	{
+		qsort(ptr->list,ptr->currentSize,sizeof(int),compareInt);
+	}
+	pthread_mutex_unlock(&todolist_mutex);
+}
+
+
+
+
+
+static void sortParentsToHeadToDoList(ToDoList *ptr,const int key)
+{
+	pthread_mutex_lock(&todolist_mutex);
+	int parent = key/2;
+	int i;
+	int ins = 0;
+	while(parent != 0)
+	{
+		int index = -1;
+		// find tht index in todolist;
+		for(i=0;i<ptr->currentSize;i++)
+		{
+			if(ptr->list[i] == parent)
+			{
+				index = i;
+				break;
+			}
+		}
+		if(index!=-1)
+		{
+			int val = getNthToDoList(ptr,index);
+			pushNthToDoList(ptr,ins,val);
+			ins++;
+//			break;
+		}
+		parent = parent / 2;
+	}
+	pthread_mutex_unlock(&todolist_mutex);
+}
+
+
+
+
+
+static void dumpToDoList(FILE *fp,ToDoList *ptr)
+{
+	int i;
+	pthread_mutex_lock(&todolist_mutex);
+	fprintf(fp,"ToDoList: ");
+	for(i=0;i<ptr->currentSize;i++)
+	{
+		fprintf(fp,"%d, ",ptr->list[i]);
+	}
+	fprintf(fp,"\n");
+	pthread_mutex_unlock(&todolist_mutex);
+}
+
+d35 1
+a78 1
+//	sortToDoList(todoList);
+d83 2
+d152 1
+a152 1
+			aluList[i] = getMempoolSet(sizeof(ALUQuad));
+d177 3
+a179 3
+				aluList[i]->a = createSparseQuadMatrix(aRow,aCol,gvNum);
+				aluList[i]->l = createSparseQuadMatrix(aRow,aRow,gvNum);
+				aluList[i]->u = createSparseQuadMatrix(aRow,aCol,gvNum);
+d198 3
+a200 3
+				aluList[i]->a = createSparseQuadMatrix(aRow,aCol,gvNum);
+				aluList[i]->l = createSparseQuadMatrix(aRow,aRow,gvNum);
+				aluList[i]->u = createSparseQuadMatrix(aRow,aCol,gvNum);
+d217 1
+a217 1
+static void freeALU(ALUQuad *alu)
+d221 4
+a224 4
+		freeSparseQuadMatrix(alu->a);
+		freeSparseQuadMatrix(alu->l);
+		freeSparseQuadMatrix(alu->u);
+		retMempoolSet(alu,sizeof(ALUQuad));
+a231 4
+static pthread_mutex_t free_alu_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+
+
+d291 9
+d326 2
+a327 2
+				partial_u = createSparseQuadMatrix(uTemp->totalRow-leftRow-rightRow,doneList->a->totalCol-base,gvNum);
+				getSubSparseQuadMatrix(partial_u,uTemp,leftRow+rightRow, leftRow+rightRow,uTemp->totalRow-1,uTemp->totalCol-1);
+d350 2
+a351 1
+					setPidSparseQuadMatrix(l_link,scale,j,base + partial_u_ptr->col,pid);
+d359 1
+a359 5
+//						const QuadElement *const linkU = getSparseQuadMatrix(u_link,row,col);
+
+						linkUPtr = getPtrFastRowSparseQuadMatrix(u_link,row,col,&linkUPtr);
+						QuadElement *linkU = NULL;
+						if(linkUPtr!=NULL) linkU = linkUPtr->data;
+d363 1
+a363 2
+//						setPidSparseQuadMatrix(u_link,newLinkU,row,col,pid);
+						setFastPidSparseQuadMatrix(u_link,newLinkU,row,col,&linkUPtr,&linkUPtr,pid);
+d376 1
+a376 1
+				freeSparseQuadMatrix(partial_u);
+d378 2
+d400 1
+a400 1
+			freeALU(doneList->alu[i]);
+d408 1
+a408 1
+
+d423 1
+a423 1
+			setPidSparseQuadMatrix(l_link,scale,j,pivotRowPtr->col,pid);
+d431 1
+a431 5
+//				const QuadElement * const linkU = getSparseQuadMatrix(u_link,row,col);
+				
+				linkUPtr = getPtrFastRowSparseQuadMatrix(u_link,row,col,&linkUPtr);
+				QuadElement *linkU = NULL;
+				if(linkUPtr!=NULL) linkU = linkUPtr->data;
+d435 1
+a435 1
+				setFastPidSparseQuadMatrix(u_link,newLinkU,row,col,&linkUPtr,&linkUPtr,pid);
+d444 5
+d462 5
+a466 5
+	pthread_mutex_lock(&setnode_merge_mutex);
+	mergeSparseQuadMatrix(doneList->alu[N]->l,doneList->alu[L]->l,doneList->alu[N]->l->totalRow,doneList->alu[N]->l->totalCol,0,0);
+	mergeSparseQuadMatrix(doneList->alu[N]->l,doneList->alu[R]->l,doneList->alu[N]->l->totalRow,doneList->alu[N]->l->totalCol,doneList->alu[L]->l->totalRow,doneList->alu[L]->l->totalRow);
+	mergeSparseQuadMatrix(doneList->alu[N]->l,l_link,doneList->alu[N]->l->totalRow,doneList->alu[N]->l->totalCol,doneList->alu[L]->l->totalRow+doneList->alu[R]->l->totalRow,0);
+	pthread_mutex_unlock(&setnode_merge_mutex);
+d469 5
+a473 5
+	pthread_mutex_lock(&setnode_merge_mutex);
+	mergeSparseQuadMatrix(doneList->alu[N]->u,doneList->alu[L]->u,doneList->alu[N]->u->totalRow,doneList->alu[N]->u->totalCol,0,0);
+	mergeSparseQuadMatrix(doneList->alu[N]->u,doneList->alu[R]->u,doneList->alu[N]->u->totalRow,doneList->alu[N]->u->totalCol,doneList->alu[L]->u->totalRow,doneList->alu[L]->u->totalRow);
+	mergeSparseQuadMatrix(doneList->alu[N]->u,u_link,doneList->alu[N]->u->totalRow,doneList->alu[N]->u->totalCol,doneList->alu[L]->u->totalRow+doneList->alu[R]->u->totalRow,0);
+	pthread_mutex_unlock(&setnode_merge_mutex);
+d478 2
+a479 2
+		freeALU(doneList->alu[2]);
+		freeALU(doneList->alu[3]);
+d490 2
+a491 1
+
+d728 110
+d865 1
+a865 3
+	SparseQuadMatrix *link = createSparseQuadMatrix(rowLink,colLink,gvNum);
+	getSubSparseQuadMatrix(link,doneList->a,rowCrossBegin,currentDoneRowBegin,rowCrossEnd,doneList->a->totalCol-1);
+	
+d868 2
+a869 2
+	copyPidSparseQuadMatrix(u_link,link,pid);
+	freeSparseQuadMatrix(link);
+d873 1
+d875 1
+d903 2
+a904 2
+				partial_u = createSparseQuadMatrix(uTemp->totalRow-leftRow-rightRow,doneList->a->totalCol-base,gvNum);
+				getSubSparseQuadMatrix(partial_u,uTemp,leftRow+rightRow, leftRow+rightRow,uTemp->totalRow-1,uTemp->totalCol-1);
+d950 6
+a955 1
+				freeSparseQuadMatrix(partial_u);
+d974 1
+a974 4
+		for(i=4;i<doneList->tree->size;i++)
+		{
+			freeALU(doneList->alu[i]);
+		}
+d1012 2
+a1013 2
+	quad2PidSparseQuadMatrix(l_link,l_link_dense,pid);
+	quad2PidSparseQuadMatrix(u_link,u_link_dense,pid);
+d1028 8
+a1035 5
+	pthread_mutex_lock(&setnode_merge_mutex);
+	mergeSparseQuadMatrix(doneList->alu[N]->l,doneList->alu[L]->l,doneList->alu[N]->l->totalRow,doneList->alu[N]->l->totalCol,0,0);
+	mergeSparseQuadMatrix(doneList->alu[N]->l,doneList->alu[R]->l,doneList->alu[N]->l->totalRow,doneList->alu[N]->l->totalCol,doneList->alu[L]->l->totalRow,doneList->alu[L]->l->totalRow);
+	mergeSparseQuadMatrix(doneList->alu[N]->l,l_link,doneList->alu[N]->l->totalRow,doneList->alu[N]->l->totalCol,doneList->alu[L]->l->totalRow+doneList->alu[R]->l->totalRow,0);
+	pthread_mutex_unlock(&setnode_merge_mutex);
+d1038 5
+a1042 5
+	pthread_mutex_lock(&setnode_merge_mutex);
+	mergeSparseQuadMatrix(doneList->alu[N]->u,doneList->alu[L]->u,doneList->alu[N]->u->totalRow,doneList->alu[N]->u->totalCol,0,0);
+	mergeSparseQuadMatrix(doneList->alu[N]->u,doneList->alu[R]->u,doneList->alu[N]->u->totalRow,doneList->alu[N]->u->totalCol,doneList->alu[L]->u->totalRow,doneList->alu[L]->u->totalRow);
+	mergeSparseQuadMatrix(doneList->alu[N]->u,u_link,doneList->alu[N]->u->totalRow,doneList->alu[N]->u->totalCol,doneList->alu[L]->u->totalRow+doneList->alu[R]->u->totalRow,0);
+	pthread_mutex_unlock(&setnode_merge_mutex);
+d1044 2
+d1049 4
+a1052 2
+		freeALU(doneList->alu[2]);
+		freeALU(doneList->alu[3]);
+a1058 1
+			
+d1061 2
+a1062 1
+
+d1083 1
+d1086 1
+a1086 1
+		while(activeThread < threadNum)
+d1143 1
+a1143 1
+				getSubSparseQuadMatrix(aluList[i]->a,a,ltRowSrc,ltColSrc,rbRowSrc,rbColSrc);
+d1192 1
+a1192 1
+		if(i==0) pthread_create(&pid[i],NULL,setNode,parList[i]);
+d1208 2
+a1209 1
+	for(i=0;i<2;i++) freeALU(aluList[i]);
+@
+
+
+1.38
+log
+@ok version ~ very good ~ set node 1 with dense
+@
+text
+@d397 12
+a408 1
+	sortParentsToHeadToDoList(todoList,index);
+d561 3
+a618 2
+	SparseQuadMatrix *link = createSparseQuadMatrix(rowLink,colLink,gvNum);
+	getSubSparseQuadMatrix(link,doneList->a,rowCrossBegin,currentDoneRowBegin,rowCrossEnd,doneList->a->totalCol-1);
+d622 2
+a623 3
+	copyPidSparseQuadMatrix(u_link,link,pid);
+	freeSparseQuadMatrix(link);
+	
+d721 9
+a734 1
+
+d775 1
+a775 2
+	if(N==1) for(i=2;i<16;i++) freeALU(doneList->alu[i]);
+	
+a776 1
+	pthread_mutex_lock(&setnode_merge_mutex);
+d787 1
+d791 2
+d794 1
+d799 8
+a811 3
+//	freeSparseQuadMatrix(link);
+	freePidSparseQuadMatrix(l_link,pid);
+	freePidSparseQuadMatrix(u_link,pid);
+d851 1
+d854 1
+d859 1
+a859 1
+	
+a1002 2
+	if(N==1) for(i=2;i<16;i++) freeALU(doneList->alu[i]);
+	
+d1018 2
+d1021 1
+d1026 10
+a1040 3
+	freeSparseQuadMatrix(link);
+	freePidSparseQuadMatrix(l_link,pid);
+	freePidSparseQuadMatrix(u_link,pid);
+d1181 7
+a1187 1
+	if(N==1) for(i=2;i<16;i++) freeALU(doneList->alu[i]);
+a1228 2
+	
+//	if(N==1) for(i=2;i<16;i++) freeALU(doneList->alu[i]);
+a1229 1
+	pthread_mutex_lock(&setnode_merge_mutex);
+d1240 1
+d1244 2
+d1247 1
+d1252 7
+a1263 2
+	freePidSparseQuadMatrix(l_link,pid);
+	freePidSparseQuadMatrix(u_link,pid);
+d1313 2
+a1314 2
+//		usleep(500000);
+		usleep(100000);
+d1396 1
+a1396 1
+		if(i==0) pthread_create(&pid[i],NULL,setNodeDense,parList[i]);
+@
+
+
+1.37
+log
+@ok version ~ wait to new schelduler
+@
+text
+@a3 1
+static int flagHandler[17]; // one based
+d7 20
+a26 1
+static void safeWaitFlagMatrix(int *flagHandler,int index)
+d28 1
+a28 1
+	while(flagHandler[index]!=1)
+d32 1
+a32 1
+	flagHandler[index] = 0;
+d39 22
+d68 2
+a69 1
+	
+d72 2
+a73 2
+	ptr->list[2] = 10;
+	ptr->list[3] = 11;
+d75 4
+a78 4
+	ptr->list[4] = 1;
+	ptr->list[5] = 2;
+	ptr->list[6] = 3;
+	ptr->list[7] = 4;
+d80 1
+a80 1
+	ptr->list[8] = 5;
+d82 2
+a83 2
+	ptr->list[10] = 7;
+	ptr->list[11] = 12;
+d85 3
+a87 4
+	ptr->list[12] = 13;
+	ptr->list[13] = 14;
+	ptr->list[14] = 15;
+	
+d100 35
+d152 2
+a153 1
+static int getFirstToDoList(ToDoList *ptr)
+a154 1
+	int ret = -1;
+d156 42
+a197 1
+	if(ptr->currentSize == 0)
+d199 1
+a199 1
+		printf("error!! todolist is empty\n");
+d203 31
+a233 1
+		ret = ptr->list[0];
+a234 1
+		memmove(&ptr->list[0],&ptr->list[1],sizeof(int)*ptr->currentSize);
+d236 23
+a265 1
+static int nodeOrder[16] = {0,1,2,9,3,4,10,13,5,6,7,8,11,12,14,15};
+a270 1
+//	return ( *(int*)a - *(int*)b );
+a275 2
+
+
+d288 36
+d348 1
+d397 2
+a398 1
+	sortToDoList(todoList);
+d425 1
+a425 1
+static ParallelLUQuadShareDataNew *createParallelLUQuadShareDataNew(ParallelDoneList *doneList, ToDoList *todolist, const int pid, const int N,const int rootCurrentBegin,const int currentEnd,pthread_mutex_t *mutex, pthread_cond_t *cond, pthread_mutex_t *src_mutex, pthread_cond_t *src_cond)
+a434 1
+	
+a436 2
+	ptr->src_mutex = src_mutex;
+	ptr->src_cond = src_cond;
+d452 1
+a550 1
+
+a563 1
+	pthread_cond_t *src_cond =  &ptr->src_cond[treeNodeID-1];
+d570 1
+a570 4
+
+//	if((t2-t1)<1) sleep(1);
+	safeWaitFlagMatrix(flagHandler,treeNodeID);
+	pthread_cond_signal(src_cond);
+d583 1
+d586 1
+a597 1
+	pthread_cond_t *src_cond =  &ptr->src_cond[N-1];
+a606 2
+//	dumpHeadSparseQuadMatrix(stdout,link," *** link ***");
+//	printf("*** %d,%d\n",rowCrossEnd-rowCrossBegin+1,(doneList->a->totalCol-1)-currentDoneRowBegin+1);
+d611 1
+d622 1
+d664 2
+d671 6
+a676 1
+						const QuadElement *const linkU = getSparseQuadMatrix(u_link,row,col);
+d679 2
+a680 1
+						setPidSparseQuadMatrix(u_link,newLinkU,row,col,pid);
+a697 3
+//			sleep(1);
+			safeWaitFlagMatrix(flagHandler,N);
+			pthread_cond_signal(src_cond); // tell controler it is not complete
+d699 1
+d701 3
+d706 1
+d710 2
+d713 3
+a715 2
+	time(&t2);
+	
+d731 2
+d738 6
+a743 1
+				const QuadElement * const linkU = getSparseQuadMatrix(u_link,row,col);
+d746 1
+a746 1
+				setPidSparseQuadMatrix(u_link,newLinkU,row,col,pid);
+d755 2
+d758 4
+a761 1
+	
+a763 2
+		QuadElement *element = createPidQuadElement(gvNum,pid);
+		setQuadElement(element,1.0,0,NULL,NULL);
+a766 1
+		freePidQuadElement(element,pid);
+d768 1
+a769 2
+
+	pthread_mutex_lock(&setnode_merge_mutex);
+d778 1
+d783 1
+a783 1
+	freeSparseQuadMatrix(link);
+d788 1
+a789 3
+//	sleep(1);
+	safeWaitFlagMatrix(flagHandler,N);
+	pthread_cond_signal(src_cond); // tell controler it is done
+a793 1
+// =================================================
+d795 1
+a795 1
+static int activeThread = 0;
+a796 1
+static pthread_mutex_t activeThread_mutex = PTHREAD_MUTEX_INITIALIZER;
+d799 1
+a799 1
+static void incActiveThread()
+d801 6
+a806 4
+	pthread_mutex_lock(&activeThread_mutex);
+	activeThread++;
+	pthread_mutex_unlock(&activeThread_mutex);
+}
+d808 3
+d812 6
+a817 6
+static void deccActiveThread()
+{
+	pthread_mutex_lock(&activeThread_mutex);
+	activeThread--;
+	pthread_mutex_unlock(&activeThread_mutex);
+}
+d819 17
+a835 13
+
+
+static void threadHandlerNew(void *par)
+{
+	struct ThreadHandlerPar *thread_handle_ptr = par;
+
+	ParallelLUQuadShareDataNew **list = thread_handle_ptr->list;
+	ParallelDoneList *doneList = list[0]->doneList;
+	ToDoList *todolist = list[0]->todolist; 
+	int threadNum = thread_handle_ptr->threadNum;
+
+	dumpToDoList(stdout,todolist);
+	while(!isCompleteParallelDoneList(doneList))
+d837 1
+a837 1
+		while(activeThread < threadNum)
+d839 8
+a846 34
+		}
+	}
+}
+
+
+// =================================================
+// thread handler
+
+void *threadHandler(void *par)
+{
+	struct ThreadHandlerPar *thread_handle_ptr = par;
+
+	ParallelLUQuadShareDataNew **list = thread_handle_ptr->list;
+	ParallelDoneList *doneList = list[0]->doneList;
+	ToDoList *todolist = list[0]->todolist; 
+
+	dumpToDoList(stdout,todolist);
+	while(!isCompleteParallelDoneList(doneList))
+	{
+		int indexInToDoList = getFirstToDoList(todolist);
+		if(indexInToDoList == -1) break; // already empty
+
+		pthread_mutex_t *src_mutex =&list[indexInToDoList-1]->src_mutex[indexInToDoList-1];
+		pthread_cond_t *src_cond = &list[indexInToDoList-1]->src_cond[indexInToDoList-1];
+
+//		sleep(1);
+		safeWaitFlagMatrix(flagEachNode,indexInToDoList);
+		printf("wake up node %d\n",indexInToDoList);	
+		pthread_cond_signal(list[indexInToDoList-1]->cond);
+		if(indexInToDoList <= 7)
+		{
+			flagHandler[indexInToDoList] = 1;
+			pthread_cond_wait(src_cond,src_mutex);
+			if(doneList->done[indexInToDoList] !=1 )
+d848 2
+a849 3
+				pushBackToDoList(todolist,indexInToDoList);
+				fprintf(stdout,"%d not complete, push to list\n",indexInToDoList);
+				dumpToDoList(stdout,todolist);
+d853 61
+a913 2
+				fprintf(stdout,"%d done\n",indexInToDoList);
+				dumpToDoList(stdout,todolist);
+d918 46
+a963 4
+			flagHandler[indexInToDoList] = 1;
+			pthread_cond_wait(src_cond,src_mutex);
+			fprintf(stdout,"%d done\n",indexInToDoList);
+			dumpToDoList(stdout,todolist);
+d966 10
+d977 32
+a1008 1
+	printf("thread handler %d end\n",thread_handle_ptr->handler_id);
+d1013 260
+a1283 1
+	memset(flagHandler,0,sizeof(int)*17);
+a1310 3
+	// mutex and cv list for scheduler
+	pthread_mutex_t src_mutex[treeSize];
+	pthread_cond_t src_cond[treeSize];
+a1314 2
+		pthread_mutex_init(&src_mutex[i],NULL);
+		pthread_cond_init(&src_cond[i],NULL);
+d1318 26
+a1343 10
+	//used for cross nodes
+	parList[0] = createParallelLUQuadShareDataNew(doneList,todolist,1,1,-1, 3,&mutex[0],&cond[0],src_mutex,src_cond);
+	parList[1] = createParallelLUQuadShareDataNew(doneList,todolist,2,2,-1, 5,&mutex[1],&cond[1],src_mutex,src_cond);
+	parList[2] = createParallelLUQuadShareDataNew(doneList,todolist,3,3, 6, 7,&mutex[2],&cond[2],src_mutex,src_cond);
+	parList[3] = createParallelLUQuadShareDataNew(doneList,todolist,4,4,-1, 9,&mutex[3],&cond[3],src_mutex,src_cond);
+	parList[4] = createParallelLUQuadShareDataNew(doneList,todolist,5,5, 2,11,&mutex[4],&cond[4],src_mutex,src_cond);
+	parList[5] = createParallelLUQuadShareDataNew(doneList,todolist,6,6, 6,13,&mutex[5],&cond[5],src_mutex,src_cond);
+	parList[6] = createParallelLUQuadShareDataNew(doneList,todolist,7,7, 9,15,&mutex[6],&cond[6],src_mutex,src_cond);
+	// used for "LU node"
+	for(i=7;i<15;i++) parList[i] = createParallelLUQuadShareDataNew(doneList,todolist,i+1,i+1,0,0,&mutex[i],&cond[i],src_mutex,src_cond);
+d1348 2
+a1349 1
+		if(i<7) pthread_create(&pid[i],NULL,setNode,parList[i]);
+a1351 1
+
+a1352 10
+	struct ThreadHandlerPar thread_handle[threadNum];
+	pthread_t thread_handle_pid[threadNum];
+	
+	for(i=0;i<threadNum;i++)
+	{
+		thread_handle[i].list = parList;
+		thread_handle[i].handler_id = i+1;
+		pthread_create(&thread_handle_pid[i],NULL,threadHandler,&thread_handle[i]);
+	}
+	for(i=0;i<threadNum;i++) pthread_join(thread_handle_pid[i],NULL);
+d1354 4
+d1363 2
+a1364 1
+	for(i=0;i<tree->size;i++) freeALU(aluList[i]);
+@
+
+
+1.36
+log
+@ok version ~ lu scheldule is ok ~ cross is not , pid is ok in lu leavies
+@
+text
+@d4 14
+a17 2
+//static pthread_mutex_t freeSinkList_mutex = PTHREAD_MUTEX_INITIALIZER;
+//static pthread_mutex_t mergeALU_mutex = PTHREAD_MUTEX_INITIALIZER;
+d31 2
+a32 2
+	ptr->list[2] = 1;
+	ptr->list[3] = 2;
+d34 8
+a41 8
+	ptr->list[4] = 3;
+	ptr->list[5] = 4;
+	ptr->list[6] = 5;
+	ptr->list[7] = 6;
+
+	ptr->list[8] = 7;
+	ptr->list[9] = 10;
+	ptr->list[10] = 11;
+d83 1
+a83 1
+		printf("error!! todolist if null\n");
+d96 3
+d101 4
+a104 1
+  return ( *(int*)a - *(int*)b );
+d110 2
+d206 1
+a206 1
+	for(i=8;i<16;i++)
+d249 3
+a251 1
+// =================================================
+d359 1
+d365 1
+a365 1
+	pthread_cond_t *src_cond =  &ptr->src_cond[pid-1];
+d369 1
+a369 1
+	fprintf(stderr,"lu time:%g\n",difftime(t2,t1));
+d373 2
+a374 1
+	if((t2-t1)<1) sleep(1);
+d381 2
+d389 1
+d391 3
+a393 1
+	ParallelDoneList *doneList = ptr->doneList;
+d401 1
+a424 2
+//			pthread_mutex_lock(&setNodePhase1_mutex);
+
+a488 2
+//				freeALU(doneList->alu[left]);
+//				freeALU(doneList->alu[right]);
+a490 2
+	
+//			pthread_mutex_unlock(&setNodePhase1_mutex);
+d494 7
+a500 1
+			sleep(1);
+d503 3
+a506 1
+//	pthread_mutex_lock(&setNodePhase1_mutex);
+a550 2
+//	pthread_mutex_unlock(&setNodePhase1_mutex);
+//	pthread_mutex_lock(&setNodePhase2_mutex);
+d552 1
+d560 1
+a560 1
+
+d563 1
+a563 5
+//	printf("t2-t1:%g\n",difftime(t2,t1));
+//	printf("t3-t2:%g\n",difftime(t3,t2));
+
+//	freeALU(doneList->alu[2]);
+//	freeALU(doneList->alu[3]);
+a568 1
+//	set1ParallelDoneList(doneList,N);
+a569 1
+//	doneList->done[N] = 1;
+d571 3
+a573 1
+//	pthread_mutex_unlock(&setNodePhase2_mutex);
+d579 43
+a626 1
+	const int pid = thread_handle_ptr->pid;
+d632 1
+a634 1
+		dumpToDoList(stdout,todolist);
+d636 4
+a639 2
+		pthread_mutex_t *src_mutex = &list[indexInToDoList-1]->src_mutex[pid-1];
+		pthread_cond_t *src_cond = &list[indexInToDoList-1]->src_cond[pid-1];
+d641 4
+a644 1
+		printf("indexInToDoList = %d\n",indexInToDoList);		
+d647 13
+a659 2
+			pushBackToDoList(todolist,indexInToDoList);
+			continue;
+d663 1
+a663 2
+			list[indexInToDoList-1]->pid = pid;
+			pthread_cond_signal(list[indexInToDoList-1]->cond);
+d665 1
+a665 1
+			fprintf(stdout,"done\n");
+d670 1
+a670 1
+	printf("thread handler %d end\n",pid);
+d686 3
+a712 1
+	for(i=0;i<treeSize;i++) pthread_mutex_init(&mutex[i],NULL);
+a713 1
+	for(i=0;i<treeSize;i++) pthread_cond_init(&cond[i],NULL);
+d715 9
+a723 4
+	pthread_mutex_t src_mutex[threadNum];
+	for(i=0;i<threadNum;i++) pthread_mutex_init(&src_mutex[i],NULL);
+	pthread_cond_t src_cond[threadNum];
+	for(i=0;i<threadNum;i++) pthread_cond_init(&src_cond[i],NULL);
+a725 1
+	pthread_t pid[15];
+d727 7
+a733 7
+	parList[0] = createParallelLUQuadShareDataNew(doneList,todolist,0,1,-1, 3,&mutex[i],&cond[i],src_mutex,src_cond);
+	parList[1] = createParallelLUQuadShareDataNew(doneList,todolist,0,2,-1, 5,&mutex[i],&cond[i],src_mutex,src_cond);
+	parList[2] = createParallelLUQuadShareDataNew(doneList,todolist,0,3, 6, 7,&mutex[i],&cond[i],src_mutex,src_cond);
+	parList[3] = createParallelLUQuadShareDataNew(doneList,todolist,0,4,-1, 9,&mutex[i],&cond[i],src_mutex,src_cond);
+	parList[4] = createParallelLUQuadShareDataNew(doneList,todolist,0,5, 2,11,&mutex[i],&cond[i],src_mutex,src_cond);
+	parList[5] = createParallelLUQuadShareDataNew(doneList,todolist,0,6, 6,13,&mutex[i],&cond[i],src_mutex,src_cond);
+	parList[6] = createParallelLUQuadShareDataNew(doneList,todolist,0,7, 9,15,&mutex[i],&cond[i],src_mutex,src_cond);
+d735 1
+a735 1
+	for(i=7;i<15;i++) parList[i] = createParallelLUQuadShareDataNew(doneList,todolist,0,i+1,0,0,&mutex[i],&cond[i],src_mutex,src_cond);
+d737 6
+a742 1
+	for(i=7;i<15;i++) pthread_create(&pid[i],NULL,threadLU,parList[i]);
+a744 2
+
+//	ThreadHandlerPar *threadHandle = getMempoolSet(sizeof(ThreadHandlerPar));
+d751 1
+a751 1
+		thread_handle[i].pid = i+1;
+a753 2
+
+
+a754 1
+//	threadHandler(&thread_handle);
+a755 6
+	printf("end while\n");
+	for(i=6;i>=0;i--)
+	{
+		pthread_create(&pid[i],NULL,setNode,parList[i]);
+		pthread_join(pid[i],NULL);
+	}
+@
+
+
+1.35
+log
+@ok version ~ need update pid ... cross is not complete ... 1 thread version is not complete
+@
+text
+@d4 2
+a5 3
+static pthread_mutex_t freeSinkList_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t mergeALU_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t todolist_mutex = PTHREAD_MUTEX_INITIALIZER;
+d10 1
+d122 1
+d171 28
+d203 1
+a203 1
+static ParallelLUQuadShareDataNew *createParallelLUQuadShareDataNew(ParallelDoneList *doneList, ToDoList *todolist, const int pid, const int N,const int rootCurrentBegin,const int currentEnd,pthread_mutex_t *mutex, pthread_cond_t *cond, pthread_cond_t *src_cond)
+d216 1
+a334 1
+	const int pid = ptr->pid;
+d341 3
+d347 5
+a351 1
+	ptr->doneList->done[treeNodeID] = 1;
+d542 3
+a544 1
+	doneList->done[N] = 1;
+d551 2
+d554 4
+d559 30
+d630 4
+a633 4
+	pthread_mutex_t src_mutex;
+	pthread_mutex_init(&src_mutex,NULL);
+	pthread_cond_t src_cond;
+	pthread_cond_init(&src_cond,NULL);
+d638 9
+a646 10
+	// set root
+	parList[0] = createParallelLUQuadShareDataNew(doneList,todolist,0,1,-1, 3,&mutex[i],&cond[i],&src_cond);
+	parList[1] = createParallelLUQuadShareDataNew(doneList,todolist,0,2,-1, 5,&mutex[i],&cond[i],&src_cond);
+	parList[2] = createParallelLUQuadShareDataNew(doneList,todolist,0,3, 6, 7,&mutex[i],&cond[i],&src_cond);
+	parList[3] = createParallelLUQuadShareDataNew(doneList,todolist,0,4,-1, 9,&mutex[i],&cond[i],&src_cond);
+	parList[4] = createParallelLUQuadShareDataNew(doneList,todolist,0,5, 2,11,&mutex[i],&cond[i],&src_cond);
+	parList[5] = createParallelLUQuadShareDataNew(doneList,todolist,0,6, 6,13,&mutex[i],&cond[i],&src_cond);
+	parList[6] = createParallelLUQuadShareDataNew(doneList,todolist,0,7, 9,15,&mutex[i],&cond[i],&src_cond);
+	for(i=7;i<15;i++) parList[i] = createParallelLUQuadShareDataNew(doneList,todolist,0,i+1,0,0,&mutex[i],&cond[i],&src_cond); // used for "LU node"
+
+d651 6
+a656 1
+	for(i=7;i<15;i++)
+d658 3
+a660 1
+		pthread_cond_signal(&cond[i]);
+d663 3
+a665 20
+/*
+	while(doneList->done[8]!=1 || doneList->done[9]!=1 || doneList->done[10]!=1 || doneList->done[11]!=1 || doneList->done[12]!=1 || doneList->done[13]!=1 || doneList->done[14]!=1 || doneList->done[15]!=1)
+	{
+		dumpToDoList(stdout,todolist);
+		int indexInToDoList = getFirstToDoList(todolist);
+		printf("indexInToDoList = %d\n",indexInToDoList);
+		if(indexInToDoList <= 7)
+		{
+			pushBackToDoList(todolist,indexInToDoList);
+			continue;
+		}
+		else
+		{
+			pthread_create(&pid[indexInToDoList-1],NULL,threadLU,parList[indexInToDoList-1]);
+			pthread_join(pid[indexInToDoList-1],NULL);
+			fprintf(stdout,"done\n");
+			dumpToDoList(stdout,todolist);
+		}
+	}
+*/
+@
+
+
+1.34
+log
+@ok version ~ but need tread management and alu free
+@
+text
+@d6 1
+a6 1
+
+d12 1
+a12 1
+ToDoList *createToDoList(void)
+d41 1
+a41 1
+void freeToDoList(ToDoList *ptr)
+d48 1
+a48 1
+void pushBackToDoList(ToDoList *ptr, int data)
+d50 1
+d60 1
+d65 1
+a65 1
+int getFirstToDoList(ToDoList *ptr)
+d68 1
+d75 1
+a75 1
+		ret = ptr->list[ptr->currentSize-1];
+d77 1
+d79 1
+a79 1
+	
+d92 1
+a92 1
+void sortToDoList(ToDoList *ptr)
+d94 1
+d99 1
+d104 12
+d123 1
+a123 1
+static ParallelDoneList *createDoneList(void) // assume the # of lead of tree node is 8
+d144 5
+a148 3
+	ptr->alu = NULL;
+	ptr->tree = NULL;
+	ptr->a = NULL;
+d170 30
+d295 3
+d300 1
+a300 1
+static void *testParallelKernel(void *par)
+d302 3
+a304 1
+	ParallelLUQuadShareData *ptr = (ParallelLUQuadShareData *)par;
+d306 1
+d308 1
+a308 21
+	while(gdsl_queue_get_size_mutex(ptr->freeSinkList)!=0)
+	{
+		pthread_mutex_lock(&freeSinkList_mutex);
+		int *indexInQueue = gdsl_queue_get_head(ptr->freeSinkList);
+		if(indexInQueue == NULL)
+		{
+			// just in case that concurrently get the queue data when only remaining 1 element
+			pthread_exit(0);
+		}
+		gdsl_queue_remove(ptr->freeSinkList);
+		pthread_mutex_unlock(&freeSinkList_mutex);
+		if(*indexInQueue == 1)
+		{
+			retMempoolSet(indexInQueue,sizeof(int));
+			break;
+		}
+		else if(*indexInQueue == 2 || *indexInQueue == 3 || *indexInQueue == 4 || *indexInQueue == 5 || *indexInQueue == 6 || *indexInQueue == 7)
+		{
+			retMempoolSet(indexInQueue,sizeof(int));
+			continue;
+		}
+d310 6
+a315 13
+		if( ptr->tree->node[*indexInQueue]->type == lu)
+		{
+			time_t t1,t2;
+			fprintf(stderr,"lu begin: %d\n",*indexInQueue);
+			time(&t1);
+			luPidSparseQuadMatrix(ptr->alu[*indexInQueue]->l,ptr->alu[*indexInQueue]->u,ptr->alu[*indexInQueue]->a,pid);
+			time(&t2);
+			fprintf(stderr,"lu time:%g\n",difftime(t2,t1));
+			ptr->doneList->done[*indexInQueue] = 1;
+			fprintf(stderr,"lu done: %d\n\n",*indexInQueue);
+		}
+	}
+	pthread_exit(0);
+a321 1
+
+d326 1
+a326 1
+	ParallelDoneList *doneList = ((ParallelDoneList_ext *)par)->doneList;
+d328 3
+a330 1
+	const int N = ((ParallelDoneList_ext *)par)->N;
+d333 3
+a335 3
+	const int rootCurrentBegin = ((ParallelDoneList_ext *)par)->rootCurrentBegin;
+	const int currentEnd = ((ParallelDoneList_ext *)par)->currentEnd;;
+	const int pid = ((ParallelDoneList_ext *)par)->pid;
+d382 1
+a382 1
+			printf("current = %d, offset =%d, row=%d\n",current,offset,doneList->alu[current]->u->totalRow);
+d522 1
+d525 1
+d528 1
+a528 1
+	ParallelDoneList *doneList = createDoneList();
+a529 12
+	// pre-processing
+	gdsl_queue_t freeSinkList = gdsl_queue_alloc("freeSinkList",alloc_int,free_int);
+	getInitSinkList(freeSinkList,tree);
+	getDoneRowInfo(tree,freeSinkList);
+	for(i=0;i<tree->size;i++)
+	{
+		if(tree->node[i]!=NULL)
+		{
+			tree->node[i]->visitLog = notvisit; 
+		}
+	}
+
+d545 2
+a546 6
+
+//	doneList->pid = threadNum+1;
+	doneList->alu = aluList;
+	doneList->tree = tree;
+	doneList->a = a;
+	doneList->gvNum = a->gvNum;
+d549 46
+a594 21
+	
+	ParallelLUQuadShareData **parList = getMempoolSet(sizeof(ParallelLUQuadShareData *)*threadNum);
+	for(i=0;i<threadNum;i++)
+	{
+		ParallelLUQuadShareData *par = getMempoolSet(sizeof(ParallelLUQuadShareData));
+		par->alu = aluList;
+		par->freeSinkList = freeSinkList;
+		par->tree = tree;
+		par->doneList = doneList;
+		par->a = a;
+		par->pid = i+1;
+		parList[i] = par;
+	}
+
+	if(threadNum ==1)
+	{
+		pthread_t cross[3];
+		pthread_t pid[1];
+		
+		ParallelDoneList_ext *doneList_ext[3];
+		for(i=0;i<3;i++)
+d596 4
+a599 3
+			doneList_ext[i] = getMempoolSet(sizeof(ParallelDoneList_ext));
+			doneList_ext[i]->doneList = doneList;
+			doneList_ext[i]->pid = threadNum+i+1;
+d601 2
+a602 13
+		
+		// set root
+		doneList_ext[0]->N = 1;
+		doneList_ext[0]->rootCurrentBegin = -1;
+		doneList_ext[0]->currentEnd = 3;
+		// set 1
+		doneList_ext[1]->N = 2;
+		doneList_ext[1]->rootCurrentBegin = -1;
+		doneList_ext[1]->currentEnd = 5;
+		// set 2
+		doneList_ext[2]->N = 3;
+		doneList_ext[2]->rootCurrentBegin = 6;
+		doneList_ext[2]->currentEnd = 7;
+d604 2
+a605 12
+	
+		pthread_create(&pid[0],NULL,testParallelKernel,parList[0]);	
+		pthread_join(pid[0],NULL);
+		pthread_create(&cross[2],NULL,setNode,doneList_ext[2]);
+		pthread_join(cross[2],NULL);
+		pthread_create(&cross[1],NULL,setNode,doneList_ext[1]);
+		pthread_join(cross[1],NULL);
+		pthread_create(&cross[0],NULL,setNode,doneList_ext[0]);
+		pthread_join(cross[0],NULL);
+		
+	}
+	else
+d607 2
+a608 47
+		pthread_t cross[7];
+		pthread_t pid[threadNum];
+		
+		ParallelDoneList_ext *doneList_ext[7];
+		for(i=0;i<7;i++)
+		{
+			doneList_ext[i] = getMempoolSet(sizeof(ParallelDoneList_ext));
+			doneList_ext[i]->doneList = doneList;
+			doneList_ext[i]->pid = threadNum+i+1;
+		}
+		
+		// set root
+		doneList_ext[0]->N = 1;
+		doneList_ext[0]->rootCurrentBegin = -1;
+		doneList_ext[0]->currentEnd = 3;
+		// set 2
+		doneList_ext[1]->N = 2;
+		doneList_ext[1]->rootCurrentBegin = -1;
+		doneList_ext[1]->currentEnd = 5;
+		// set 3
+		doneList_ext[2]->N = 3;
+		doneList_ext[2]->rootCurrentBegin = 6;
+		doneList_ext[2]->currentEnd = 7;
+		// set 4
+		doneList_ext[3]->N = 4;
+		doneList_ext[3]->rootCurrentBegin = -1;
+		doneList_ext[3]->currentEnd = 9;
+		// set 5
+		doneList_ext[4]->N = 5;
+		doneList_ext[4]->rootCurrentBegin = 2;
+		doneList_ext[4]->currentEnd = 11;
+		// set 6
+		doneList_ext[5]->N = 6;
+		doneList_ext[5]->rootCurrentBegin = 6;
+		doneList_ext[5]->currentEnd = 13;
+		// set 7
+		doneList_ext[6]->N = 7;
+		doneList_ext[6]->rootCurrentBegin = 9;
+		doneList_ext[6]->currentEnd = 15;
+
+		for(i=0;i<7;i++) pthread_create(&cross[i],NULL,setNode,doneList_ext[i]);
+		// actual lu and update
+		for(i=0;i<threadNum;i++) status = pthread_create(&pid[i],NULL,testParallelKernel,parList[i]);	
+		
+		// join the result
+		for(i=0;i<threadNum;i++) status = pthread_join(pid[i],NULL);
+		for(i=0;i<7;i++) pthread_join(cross[i],NULL);
+d612 2
+a613 2
+	copySparseQuadMatrix(l,parList[0]->alu[1]->l);
+	copySparseQuadMatrix(u,parList[0]->alu[1]->u);
+d615 3
+a617 5
+	// ===================================================
+	// free the internal memory ...
+	freeALU(parList[0]->alu[1]);
+	for(i=0;i<threadNum;i++) retMempoolSet(parList[i],sizeof(ParallelLUQuadShareData));
+	retMempoolSet(parList,threadNum*sizeof(ParallelLUQuadShareData*));
+a618 1
+	gdsl_queue_free(freeSinkList);
+d620 1
+a620 1
+
+a622 4
+
+
+
+
+@
+
+
+1.33
+log
+@ok version
+memory leak of alu list
+@
+text
+@d6 94
+a99 2
+static pthread_mutex_t setNodePhase1_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t setNodePhase2_mutex = PTHREAD_MUTEX_INITIALIZER;
+a153 158
+// =================================================
+
+
+static void updateLinkPhase1(SparseQuadMatrix* sub_l_link, SparseQuadMatrix* sub_u_link, const SparseQuadMatrix* subLinkInput, const SparseQuadMatrix *partial_u,const int pid)
+{
+	const int gvNum = subLinkInput->gvNum;
+	copyPidSparseQuadMatrix(sub_u_link,subLinkInput,pid);
+	const int row_partial_u = partial_u->totalRow;
+	const int col_partial_u = partial_u->totalCol;
+	const int row_subLink = sub_u_link->totalRow;
+	const int col_subLink = sub_u_link->totalCol;
+	const int totalRow = row_partial_u + row_subLink;
+	const int totalCol = col_partial_u;
+
+	int i,j,k;
+	time_t t1,t2,t3;
+
+	time(&t1);
+
+	QuadElement *scale = createQuadElement(gvNum);
+	QuadElement *val3 = createQuadElement(gvNum);	
+	QuadElement *data = createQuadElement(gvNum);		
+
+	for(i=0;i<row_subLink;i++)
+	{
+		const SparseQuadElement *subUPtr = sub_u_link->rowIndex[i]->rowLink;
+		while(subUPtr!=NULL)
+		{
+			const int colInSubU = subUPtr->col;
+			if(colInSubU > partial_u->totalRow-1) break;
+			SparseQuadElement *partialUPtr = partial_u->rowIndex[colInSubU]->rowLink;
+			const QuadElement *valInSubU = subUPtr->data;
+			divPidQuadElement(scale,valInSubU,partialUPtr->data,pid);
+			
+			if(!isEmptyQuadElement(scale))
+			{
+				if(partialUPtr!=NULL) partialUPtr = partialUPtr->rowLink; // because ptrInU[j][i] is deleted
+				while(partialUPtr!=NULL)
+				{
+					const int colInPartialU = partialUPtr->col;
+					const QuadElement *pseudoValInSubU = getSparseQuadMatrix(sub_u_link,i,colInPartialU);
+					mulPidQuadElement(val3,scale,partialUPtr->data,pid);
+					subQuadElement(data,pseudoValInSubU,val3);
+					if(!isEmptyQuadElement(data))
+					{
+						setPidSparseQuadMatrix(sub_u_link,data,i,colInPartialU,pid);
+					}
+					partialUPtr = partialUPtr->rowLink;
+				}
+				setPidSparseQuadMatrix(sub_l_link,scale,i,colInSubU,pid);
+			}
+
+			subUPtr = subUPtr->rowLink;
+			delPidSparseQuadMatrix(sub_u_link,i,colInSubU,pid);
+		}
+	}
+	freeQuadElement(val3);
+
+
+	time(&t2);
+	for(i=0;i<row_subLink;i++)
+	{
+		QuadElement *element = createQuadElement(gvNum);
+		setQuadElement(element,1,0,NULL,NULL);
+		setPidSparseQuadMatrix(sub_l_link,element,i,row_partial_u+i,pid);
+		freeQuadElement(element);
+	}
+	time(&t3);
+	
+	freeQuadElement(data);
+	freeQuadElement(scale);		
+//	printf("t2-t1:%g\n",difftime(t2,t1));
+//	printf("t3-t2:%g\n",difftime(t3,t2));
+}
+
+
+
+
+
+static void updateLinkPhase2(SparseQuadMatrix* sub_l_link, SparseQuadMatrix* sub_u_link, const SparseQuadMatrix* subLinkInput, const SparseQuadMatrix *partial_u,const int pid)
+{
+	int i,j;
+	const int gvNum = subLinkInput->gvNum;
+	QuadElement *scale = createQuadElement(gvNum);
+	QuadElement *data = createQuadElement(gvNum);		
+	const int row_partial_u = partial_u->totalRow;
+	const int col_partial_u = partial_u->totalCol;
+	const int row_subLink = sub_u_link->totalRow;
+	const int col_subLink = sub_u_link->totalCol;
+	time_t t3,t4;
+
+	time(&t3);
+	QuadElement *temp3 = createQuadElement(gvNum);
+	for(i=0;i<row_subLink;i++)
+	{
+		for(j=i+1;j<row_subLink;j++)
+		{
+			const QuadElement *val1 = getSparseQuadMatrix(sub_u_link,j,row_partial_u+i);
+			const QuadElement *val2 = getSparseQuadMatrix(sub_u_link,i,row_partial_u+i);
+			divPidQuadElement(scale,val1,val2,pid);
+			delPidSparseQuadMatrix(sub_u_link,j,row_partial_u+i,pid);
+			if(!isEmptyQuadElement(scale))
+			{
+				SparseQuadElement *ptr = sub_u_link->rowIndex[i]->rowLink;
+				if(ptr!=NULL) ptr = ptr->rowLink;
+				while(ptr!=NULL)
+				{
+					const int insCol = ptr->col;
+					const QuadElement *temp1 = getSparseQuadMatrix(sub_u_link,i,insCol);
+					const QuadElement *temp2 = getSparseQuadMatrix(sub_u_link,j,insCol);
+					mulPidQuadElement(temp3,scale,temp1,pid);
+					subQuadElement(data,temp2,temp3);
+					setPidSparseQuadMatrix(sub_u_link,data,j,insCol,pid);
+					ptr = ptr->rowLink;
+				}
+				setPidSparseQuadMatrix(sub_l_link,scale,j,row_partial_u+i,pid);
+			}
+		}
+	}
+	freeQuadElement(temp3);
+	freeQuadElement(data);
+	freeQuadElement(scale);		
+	time(&t4);
+//	printf("t4-t3:%g\n",difftime(t4,t3));
+}
+
+
+
+
+
+static void updateLink(SparseQuadMatrix* sub_l_link, SparseQuadMatrix* sub_u_link, const SparseQuadMatrix* subLinkInput, const SparseQuadMatrix *partial_u,const int pid)
+{
+	time_t t1,t2,t3;
+/*
+	printf("=========================================\n");
+	printf("     in original update\n");
+	printf("sub_l_link - (%d,%d)\n",sub_l_link->totalRow,sub_l_link->totalCol);
+	printf("sub_u_link - (%d,%d)\n",sub_u_link->totalRow,sub_u_link->totalCol);
+	printf("subLinkInput - (%d,%d)\n",subLinkInput->totalRow,subLinkInput->totalCol);
+	printf("partial_u - (%d,%d)\n",partial_u->totalRow,partial_u->totalCol);
+	printf("=========================================\n");
+*/
+//	dumpHeadSparseQuadMatrix(stderr,sub_l_link,"phase 0 l");
+	time(&t1);
+	updateLinkPhase1(sub_l_link,sub_u_link,subLinkInput,partial_u,pid);
+	time(&t2);
+//	dumpHeadSparseQuadMatrix(stderr,sub_u_link,"phase 1 u");
+//	dumpHeadSparseQuadMatrix(stderr,sub_l_link,"phase 1 l");
+	//======================================
+	updateLinkPhase2(sub_l_link,sub_u_link,subLinkInput,partial_u,pid);
+	time(&t3);
+//	dumpHeadSparseQuadMatrix(stderr,sub_u_link,"phase 2 u");
+//	dumpHeadSparseQuadMatrix(stderr,sub_l_link,"phase 2 l");
+//	printf("t2-t1:%g\n",difftime(t2,t1));
+//	printf("t3-t2:%g\n",difftime(t3,t2));
+}
+
+
+d268 1
+a268 1
+		else if(*indexInQueue == 2 || *indexInQueue == 3)
+a284 94
+		else if( ptr->tree->node[*indexInQueue]->type == cross)
+		{
+			fprintf(stderr,"cross begin:%d\n",*indexInQueue);
+			const int leftIndex = (*indexInQueue)*2;
+			const int rightIndex = leftIndex + 1;
+			const int rowPart1 = ptr->alu[leftIndex]->a->totalRow;
+			const int colPart1 = ptr->alu[leftIndex]->a->totalCol;
+			const int rowPart2 = ptr->alu[rightIndex]->a->totalRow;
+			const int colPart2 = ptr->alu[rightIndex]->a->totalCol;
+			const int rowPart1Begin = ptr->tree->node[leftIndex]->rowBegin;
+			const int rowPart1End = ptr->tree->node[leftIndex]->rowEnd;
+			const int rowPart2Begin = ptr->tree->node[rightIndex]->rowBegin;
+			const int rowPart2End = ptr->tree->node[rightIndex]->rowEnd;
+			const int base = ptr->tree->node[*indexInQueue]->doneRowBegin;
+			const SparseQuadMatrix *partialL1 = ptr->alu[leftIndex]->l;
+			const SparseQuadMatrix *partialU1 = ptr->alu[leftIndex]->u;
+			const SparseQuadMatrix *partialL2 = ptr->alu[rightIndex]->l;
+			const SparseQuadMatrix *partialU2 = ptr->alu[rightIndex]->u;
+
+			const int rowTempL = rowPart1 + rowPart2;
+			const int colTempL = rowTempL;
+			const int rowTempU = rowTempL;
+			const int colTempU = ptr->alu[*indexInQueue]->a->totalCol;
+
+			const int gvNum = ptr->alu[*indexInQueue]->a->gvNum;
+
+//			fprintf(stderr,"after init link\n");
+			SparseQuadMatrix *tempL = createSparseQuadMatrix(rowTempL,colTempL,gvNum);
+			SparseQuadMatrix *tempU = createSparseQuadMatrix(rowTempU,colTempU,gvNum);
+
+			mergeSparseQuadMatrix(tempL,partialL1,rowTempL,colTempL,0,0);
+			mergeSparseQuadMatrix(tempL,partialL2,rowTempL,colTempL,rowPart1End+1-base,rowPart1End+1-base);
+
+			mergeSparseQuadMatrix(tempU,partialU1,rowTempU,colTempU,0,0);
+			mergeSparseQuadMatrix(tempU,partialU2,rowTempU,colTempU,rowPart1End+1-base,rowPart1End+1-base);
+			
+			const int rowLink = ptr->tree->node[*indexInQueue]->rowEnd - ptr->tree->node[*indexInQueue]->rowBegin +1;
+			const int colLink = colPart1;
+			SparseQuadMatrix *link = createSparseQuadMatrix(rowLink,colLink,gvNum);
+			const int rowCrossBegin = ptr->tree->node[*indexInQueue]->rowBegin;
+			const int rowCrossEnd = ptr->tree->node[*indexInQueue]->rowEnd;
+			const int currentDoneRowBegin = ptr->tree->node[*indexInQueue]->doneRowBegin;
+
+			getSubSparseQuadMatrix(link,ptr->a,rowCrossBegin,currentDoneRowBegin,rowCrossEnd,ptr->a->totalCol);
+
+			// update the link
+			SparseQuadMatrix *sub_l_link = createPidSparseQuadMatrix(rowLink,colLink,gvNum,pid);
+			SparseQuadMatrix *sub_u_link = createPidSparseQuadMatrix(rowLink,colLink,gvNum,pid);
+			
+			time_t updateBegin,updateEnd;
+			time(&updateBegin);
+/*			printf("=========================================\n");
+			printf("     index = %d\n",*indexInQueue);
+			printf("     in original update\n");
+			printf("sub_l_link - (%d,%d)\n",sub_l_link->totalRow,sub_l_link->totalCol);
+			printf("sub_u_link - (%d,%d)\n",sub_u_link->totalRow,sub_u_link->totalCol);
+			printf("subLinkInput - (%d,%d)\n",link->totalRow,link->totalCol);
+			printf("partial_u - (%d,%d)\n",tempU->totalRow,tempU->totalCol);
+			printf("=========================================\n");
+*/			updateLink(sub_l_link,sub_u_link,link,tempU,pid);
+			time(&updateEnd);
+//			fprintf(stderr,"update time:%g\n",difftime(updateEnd,updateBegin));
+		
+
+			pthread_mutex_lock(&mergeALU_mutex);
+			const int currentLRow = ptr->alu[*indexInQueue]->l->totalRow;
+			const int currentLCol = ptr->alu[*indexInQueue]->l->totalCol;
+			mergeSparseQuadMatrix(ptr->alu[*indexInQueue]->l,tempL,currentLRow,currentLCol,0,0);
+			mergeSparseQuadMatrix(ptr->alu[*indexInQueue]->l,sub_l_link,currentLRow,currentLCol,rowPart1+rowPart2,0);
+			const int currentURow = ptr->alu[*indexInQueue]->u->totalRow;
+			const int currentUCol = ptr->alu[*indexInQueue]->u->totalCol;
+			mergeSparseQuadMatrix(ptr->alu[*indexInQueue]->u,tempU,currentURow,currentUCol,0,0);
+			mergeSparseQuadMatrix(ptr->alu[*indexInQueue]->u,sub_u_link,currentURow,currentUCol,rowPart1+rowPart2,0);
+			pthread_mutex_unlock(&mergeALU_mutex);
+			freePidSparseQuadMatrix(sub_l_link,pid);
+			freePidSparseQuadMatrix(sub_u_link,pid);
+
+			freeSparseQuadMatrix(link);
+			freeSparseQuadMatrix(tempL);
+			freeSparseQuadMatrix(tempU);
+
+			ptr->doneList->done[*indexInQueue] = 1;
+			fprintf(stderr,"cross done:%d\n\n",*indexInQueue);
+		}
+		else
+		{
+			fprintf(stderr,"Some elements in elimination list is undefined %d\n",*indexInQueue);
+			exit(0);
+		}
+		
+		pthread_mutex_lock(&freeSinkList_mutex);
+		updateFreeSinkList(ptr->freeSinkList,ptr->tree,*indexInQueue);
+		pthread_mutex_unlock(&freeSinkList_mutex);
+		retMempoolSet(indexInQueue,sizeof(int));
+d586 1
+a586 1
+		pthread_t cross[3];
+d589 2
+a590 2
+		ParallelDoneList_ext *doneList_ext[3];
+		for(i=0;i<3;i++)
+d601 1
+a601 1
+		// set 1
+d605 1
+a605 1
+		// set 2
+d609 16
+d626 1
+a626 2
+	
+		for(i=0;i<3;i++) pthread_create(&cross[i],NULL,setNode,doneList_ext[i]);
+d632 1
+a632 1
+		for(i=0;i<3;i++) pthread_join(cross[i],NULL);
+@
+
+
+1.32
+log
+@ok version ~ wait to add node2 and node3
+@
+text
+@d6 2
+d215 2
+a216 2
+	printf("t2-t1:%g\n",difftime(t2,t1));
+	printf("t3-t2:%g\n",difftime(t3,t2));
+d329 10
+a338 1
+		if(*indexInQueue == 1) break;
+d453 2
+a454 1
+static void *setNode2(void *par)
+d458 1
+a458 2
+	ParallelDoneList *doneList = par;
+}
+d460 6
+a466 7
+
+static void *setNodeRoot(void *par)
+{
+	int i,j;
+	time_t t1,t2,t3;
+	ParallelDoneList *doneList = par;
+			
+d468 5
+a472 6
+	const int rowLink = doneList->tree->node[1]->rowEnd - doneList->tree->node[1]->rowBegin +1;
+	const int colLink = doneList->a->totalCol;
+	const int rowCrossBegin = doneList->tree->node[1]->rowBegin;
+	const int rowCrossEnd = doneList->tree->node[1]->rowEnd;
+	const int currentDoneRowBegin = doneList->tree->node[1]->doneRowBegin;
+	const int pid = doneList->pid;
+d475 4
+a478 3
+	dumpHeadSparseQuadMatrix(stdout,link," *** link ***");
+
+	SparseQuadMatrix *l_link = createPidSparseQuadMatrix(rowLink,colLink,gvNum,pid);
+d481 3
+a483 4
+
+	time(&t1);
+
+	int rootCurrent = -1;
+d485 1
+a485 1
+	while(rootCurrent != 13)
+d489 2
+d492 1
+a492 1
+			const int current = doneList->orderList[rootCurrent];
+d496 1
+d500 1
+a506 11
+			}
+
+			SparseQuadMatrix *partial_u;
+			if(current > 7)
+			{
+				partial_u = doneList->alu[current]->u;
+			}
+			else
+			{
+				const int leftRow = doneList->alu[left]->u->totalRow;
+				const int rightRow = doneList->alu[right]->u->totalRow;
+a509 2
+//				printf("%d,%d\n", (uTemp->totalRow-1) - (leftRow+rightRow) + 1, (uTemp->totalCol-1) - (leftRow+rightRow) +1);
+//				printf("base = %d\n",base);
+d512 1
+a512 1
+//			dumpHeadSparseQuadMatrix(stdout,partial_u," *** partial_u ***");
+d551 1
+a551 12
+
+//			printf("=========================================\n");
+//			printf("     in root update - current = %d\n",current);
+//			printf("partial_u - (%d,%d)\n",partial_u->totalRow,partial_u->totalCol);
+//			printf("l_link - (%d,%d)\n",l_link->totalRow,l_link->totalCol);
+//			printf("u_link - (%d,%d)\n",u_link->totalRow,u_link->totalCol);
+//			printf("alu->u - (%d,%d)\n",doneList->alu[current]->u->totalRow,doneList->alu[current]->u->totalCol);
+//			printf("base - %d\n",base);
+//			dumpHeadSparseQuadMatrix(stdout,u_link,"***u_link***");
+//			dumpHeadSparseQuadMatrix(stdout,l_link,"***l_link***");
+//			printf("=========================================\n");
+
+d555 2
+a556 2
+				freeALU(doneList->alu[left]);
+				freeALU(doneList->alu[right]);
+d559 2
+d567 2
+a568 2
+	time(&t2);
+
+d601 2
+a602 3
+
+	dumpHeadSparseQuadMatrix(stdout,l_link,"***l_link***");
+
+d607 3
+a609 1
+		setPidSparseQuadMatrix(l_link,element,i,l_link->totalCol-l_link->totalRow+i,pid);
+d613 11
+a623 7
+	mergeSparseQuadMatrix(doneList->alu[1]->l,doneList->alu[2]->l,doneList->alu[1]->l->totalRow,doneList->alu[1]->l->totalCol,0,0);
+	mergeSparseQuadMatrix(doneList->alu[1]->l,doneList->alu[3]->l,doneList->alu[1]->l->totalRow,doneList->alu[1]->l->totalCol,doneList->alu[2]->l->totalRow,doneList->alu[2]->l->totalRow);
+	mergeSparseQuadMatrix(doneList->alu[1]->l,l_link,doneList->alu[1]->l->totalRow,doneList->alu[1]->l->totalCol,doneList->alu[2]->l->totalRow+doneList->alu[3]->l->totalRow,0);
+
+	mergeSparseQuadMatrix(doneList->alu[1]->u,doneList->alu[2]->u,doneList->alu[1]->u->totalRow,doneList->alu[1]->u->totalCol,0,0);
+	mergeSparseQuadMatrix(doneList->alu[1]->u,doneList->alu[3]->u,doneList->alu[1]->u->totalRow,doneList->alu[1]->u->totalCol,doneList->alu[2]->u->totalRow,doneList->alu[2]->u->totalRow);
+	mergeSparseQuadMatrix(doneList->alu[1]->u,u_link,doneList->alu[1]->u->totalRow,doneList->alu[1]->u->totalCol,doneList->alu[2]->u->totalRow+doneList->alu[3]->u->totalRow,0);
+a624 2
+	dumpHeadSparseQuadMatrix(stdout,doneList->alu[1]->l,"after L");
+	dumpHeadSparseQuadMatrix(stdout,doneList->alu[1]->u,"after U");
+d627 1
+a627 1
+	printf("t3-t2:%g\n",difftime(t3,t2));
+d629 2
+a630 2
+	freeALU(doneList->alu[2]);
+	freeALU(doneList->alu[3]);
+d635 4
+d644 6
+d686 1
+a686 1
+	doneList->pid = threadNum+1;
+d709 1
+a709 1
+		pthread_t root_pid;	
+d711 23
+d735 8
+a742 3
+		status = pthread_join(pid[0],NULL);
+		pthread_create(&root_pid,NULL,setNodeRoot,doneList);
+		pthread_join(root_pid,NULL);
+d746 1
+a746 1
+		pthread_t root_pid;	
+d748 24
+a771 1
+		pthread_create(&root_pid,NULL,setNodeRoot,doneList);
+d777 1
+a777 1
+		pthread_join(root_pid,NULL);
+@
+
+
+1.31
+log
+@ok version ~ wait dense
+@
+text
+@d5 1
+d11 1
+a11 1
+ParallelDoneList *createDoneList(void) // assume the # of lead of tree node is 8
+a13 1
+	ptr->current = -1;
+d41 1
+a41 1
+void freeParallelDoneList(ParallelDoneList *ptr)
+d49 1
+a49 1
+int checkNextParallelDoneList(ParallelDoneList *ptr)
+d51 1
+a51 1
+	int nextIndex = ptr->orderList[ptr->current+1];
+a58 5
+void incCurrentParallelDoneList(ParallelDoneList *ptr)
+{
+	ptr->current = ptr->current+1;
+}
+
+d90 1
+a90 1
+			const SparseQuadElement *partialUPtr = partial_u->rowIndex[colInSubU]->rowLink;
+a324 2
+		if(*indexInQueue == 1) break;
+
+d327 1
+d402 3
+a404 1
+			
+d413 1
+a420 3
+//			freeALU(ptr->alu[leftIndex]);
+//			freeALU(ptr->alu[rightIndex]);
+
+d440 11
+d453 1
+a464 1
+//	printf("link info:%d,%d,%d,%d\n",rowCrossBegin,currentDoneRowBegin,rowCrossEnd,doneList->a->totalCol-1);
+d473 2
+d476 1
+a476 1
+	while(doneList->current != 13)
+d478 1
+a478 1
+		if(checkNextParallelDoneList(doneList) == 1)
+d480 2
+a481 2
+			incCurrentParallelDoneList(doneList);
+			const int current = doneList->orderList[doneList->current];
+a577 7
+	int i,j;
+/*
+	QuadMatrix *denseL = createQuadMatrix(l_link->totalRow,l_link->totalCol,gvNum);
+	for(i=0;i<denseL->row*denseL->col;i++) denseL->data[i] = createQuadElement(gvNum);
+	freeQuadMatrix(denseL);
+*/
+
+@
+
+
+1.30
+log
+@ok version ~ set root is ok
+@
+text
+@d197 1
+d208 1
+d210 1
+d215 1
+d218 2
+d448 1
+d457 1
+d461 1
+a461 1
+//	dumpHeadSparseQuadMatrix(stdout,link," *** link ***");
+d463 3
+a465 3
+	SparseQuadMatrix *l_link = createSparseQuadMatrix(rowLink,colLink,gvNum);
+	SparseQuadMatrix *u_link = createSparseQuadMatrix(rowLink,colLink,gvNum);
+	copySparseQuadMatrix(u_link,link);
+d467 1
+d508 3
+a510 3
+			QuadElement *scale = createQuadElement(gvNum);
+			QuadElement *newLinkU = createQuadElement(gvNum);
+			QuadElement *scaledPartialUData = createQuadElement(gvNum);
+d520 1
+a520 1
+					divQuadElement(scale,getSparseQuadMatrix(u_link,j,base+i),partial_u_ptr->data);
+d523 1
+a523 1
+						delSparseQuadMatrix(u_link,j,base + i);
+d526 1
+a526 1
+					setSparseQuadMatrix(l_link,scale,j,base + partial_u_ptr->col);
+d533 1
+a533 1
+						mulQuadElement(scaledPartialUData,scale,data);
+d535 1
+a535 1
+						setSparseQuadMatrix(u_link,newLinkU,row,col);
+d538 1
+a538 1
+					delSparseQuadMatrix(u_link,j,base + i);
+d541 3
+a543 3
+			freeQuadElement(scaledPartialUData);
+			freeQuadElement(newLinkU);
+			freeQuadElement(scale);
+d569 1
+d572 5
+a576 10
+	for(i=0;i<u_link->totalRow;i++)
+	{
+//		printf("col - %d\n",u_link->rowIndex[i]->rowLink->col);
+	}
+	for(i=0;i<l_link->totalRow;i++)
+	{
+//		printf("col - %d\n",l_link->rowIndex[i]->rowLink->col);
+	}
+
+	printf("final base = %d\n",base);
+d578 3
+a580 4
+
+	QuadElement *scale = createQuadElement(gvNum);
+	QuadElement *newLinkU = createQuadElement(gvNum);
+	QuadElement *scaledPartialUData = createQuadElement(gvNum);
+d586 1
+a586 1
+			divQuadElement(scale,getSparseQuadMatrix(u_link,j,base+i),pivotRowPtr->data);
+d589 1
+a589 1
+				delSparseQuadMatrix(u_link,j,base + i);
+d592 1
+a592 1
+			setSparseQuadMatrix(l_link,scale,j,pivotRowPtr->col);
+d599 1
+a599 1
+				mulQuadElement(scaledPartialUData,scale,data);
+d601 1
+a601 1
+				setSparseQuadMatrix(u_link,newLinkU,row,col);
+d604 1
+a604 1
+			delSparseQuadMatrix(u_link,j,base + i);
+d607 3
+a609 3
+	freeQuadElement(scaledPartialUData);
+	freeQuadElement(newLinkU);
+	freeQuadElement(scale);
+d615 1
+a615 1
+		QuadElement *element = createQuadElement(gvNum);
+d617 2
+a618 2
+		setSparseQuadMatrix(l_link,element,i,l_link->totalCol-l_link->totalRow+i);
+		freeQuadElement(element);
+d631 3
+d639 2
+a640 2
+	freeSparseQuadMatrix(l_link);
+	freeSparseQuadMatrix(u_link);
+a651 2
+	pthread_t pid[threadNum];
+
+d653 1
+a653 1
+
+d682 1
+d703 21
+a723 8
+	pthread_t root_pid;	
+	pthread_create(&root_pid,NULL,setNodeRoot,doneList);
+	// actual lu and update
+	for(i=0;i<threadNum;i++) status = pthread_create(&pid[i],NULL,testParallelKernel,parList[i]);	
+	
+	// join the result
+	for(i=0;i<threadNum;i++) status = pthread_join(pid[i],NULL);
+	pthread_join(root_pid,NULL);
+@
+
+
+1.29
+log
+@ok version ... useless setRoot ... ha
+@
+text
+@d206 1
+d324 1
+d451 3
+a453 1
+	getSubSparseQuadMatrix(link,doneList->a,rowCrossBegin,currentDoneRowBegin,rowCrossEnd,doneList->a->totalCol);
+d492 2
+a493 2
+				printf("%d,%d\n", (uTemp->totalRow-1) - (leftRow+rightRow) + 1, (uTemp->totalCol-1) - (leftRow+rightRow) +1);
+				printf("base = %d\n",base);
+d496 1
+d499 3
+d507 5
+a511 2
+					QuadElement *scale = createQuadElement(gvNum);
+					divQuadElement(scale,getSparseQuadMatrix(u_link,j,base),partial_u_ptr->data);
+a513 1
+						freeQuadElement(scale);
+d518 1
+a518 1
+					while(partial_u_ptr!=NULL) // sweep each element in partial row j
+d522 1
+a522 1
+						const QuadElement *data = partial_u_ptr->data;
+a523 2
+						QuadElement *newLinkU = createQuadElement(gvNum);
+						QuadElement *scaledPartialUData = createQuadElement(gvNum);
+a527 2
+						freeQuadElement(scaledPartialUData);
+						freeQuadElement(newLinkU);
+a528 1
+					freeQuadElement(scale);
+d532 7
+a538 12
+
+			for(i=0;i<u_link->totalRow;i++)
+			{
+				QuadElement *element = createQuadElement(gvNum);
+				setQuadElement(element,1,0,NULL,NULL);
+				setSparseQuadMatrix(l_link,element,i,partial_u->totalRow+i);
+				freeQuadElement(element);
+			}
+/*
+			printf("=========================================\n");
+			printf("     in root update - current = %d\n",current);
+			printf("partial_u - (%d,%d)\n",partial_u->totalRow,partial_u->totalCol);
+d541 6
+a546 4
+			printf("alu->u - (%d,%d)\n",doneList->alu[current]->u->totalRow,doneList->alu[current]->u->totalCol);
+			printf("base - %d\n",base);
+			printf("=========================================\n");
+*/
+d561 1
+a561 1
+	int i;
+d564 1
+a564 1
+		printf("col - %d\n",u_link->rowIndex[i]->rowLink->col);
+d568 1
+a568 1
+		printf("col - %d\n",l_link->rowIndex[i]->rowLink->col);
+d571 53
+a623 1
+	
+d625 2
+d628 2
+@
+
+
+1.28
+log
+@*** empty log message ***
+@
+text
+@a67 1
+
+d123 1
+d207 2
+a208 2
+	dumpHeadSparseQuadMatrix(stderr,sub_u_link,"phase 1 u");
+	dumpHeadSparseQuadMatrix(stderr,sub_l_link,"phase 1 l");
+d211 2
+a212 2
+	dumpHeadSparseQuadMatrix(stderr,sub_u_link,"phase 2 u");
+	dumpHeadSparseQuadMatrix(stderr,sub_l_link,"phase 2 l");
+d389 1
+a389 1
+			printf("=========================================\n");
+d397 1
+a397 1
+			updateLink(sub_l_link,sub_u_link,link,tempU,pid);
+a444 1
+	SparseQuadMatrix *link = createSparseQuadMatrix(rowLink,colLink,gvNum);
+d448 1
+d456 1
+a456 2
+//	int total = 0;
+	while(doneList->current != 14)
+d485 1
+d487 4
+a490 3
+				partial_u = createSparseQuadMatrix(uTemp->totalRow-leftRow-rightRow,uTemp->totalCol,gvNum);
+				getSubSparseQuadMatrix(partial_u,uTemp,leftRow+rightRow,0,uTemp->totalRow-1,uTemp->totalCol-1);
+//				partial_u = doneList->alu[current]->u;
+a491 1
+//			printf("u%d - (%d,%d)\n",current,u->totalRow,u->totalCol);
+d493 34
+a526 2
+			SparseQuadMatrix *sub_l_link = createSparseQuadMatrix(rowLink,colLink-base,gvNum);
+			SparseQuadMatrix *sub_u_link = createSparseQuadMatrix(rowLink,colLink-base,gvNum);
+d528 8
+a537 3
+//			printf("sub_l_link - (%d,%d)\n",sub_l_link->totalRow,sub_l_link->totalCol);
+//			printf("sub_u_link - (%d,%d)\n",sub_u_link->totalRow,sub_u_link->totalCol);
+			printf("subLinkInput - (%d,%d)\n",sub_u_link->totalRow,sub_u_link->totalCol);
+d539 3
+a541 2
+			printf("l_link - (%d,%d)\n",l_link->totalRow,l_link->totalCol);
+			printf("u_link - (%d,%d)\n",u_link->totalRow,u_link->totalCol);
+a543 16
+/*
+			getSubSparseQuadMatrix(sub_l_link,l_link,0,base,rowLink-1,colLink-1);
+			getSubSparseQuadMatrix(sub_u_link,u_link,0,base,rowLink-1,colLink-1);
+//			getSubSparseQuadMatrix(SparseQuadMatrix *dest, const SparseQuadMatrix *src, const int ltRowSrc, const int ltColSrc, const int rbRowSrc, const int rbColSrc);
+
+//			updateLinkPhase1(sub_l_link,sub_u_link,sub_u_link,u,0);
+			//updateLinkPhase1(SparseQuadMatrix* sub_l_link, SparseQuadMatrix* sub_u_link, const SparseQuadMatrix* subLinkInput, const SparseQuadMatrix *partial_u,const int pid);
+			
+			clearBlockSparseQuadMatrix(l_link,0,base,rowLink-1,colLink-1);
+			clearBlockSparseQuadMatrix(u_link,0,base,rowLink-1,colLink-1);
+//			clearBlockSparseQuadMatrix(l_link,0, const int col1, const int row2, const int col2);
+			
+			mergeSparseQuadMatrix(l_link,sub_l_link,l_link->totalRow,l_link->totalCol,0,base);
+			mergeSparseQuadMatrix(u_link,sub_u_link,u_link->totalRow,u_link->totalCol,0,base);
+//			mergeSparseQuadMatrix(SparseQuadMatrix *dest, const SparseQuadMatrix *src, const int destRow, const int destCol,const int ltRowDest, const int ltColDest);
+
+a544 3
+			freeSparseQuadMatrix(sub_l_link);
+			freeSparseQuadMatrix(sub_u_link);
+
+a545 2
+			// add the content here
+			
+d550 1
+d558 14
+a571 1
+//	printf("Total = %d\n",total);
+a602 12
+	// print out the done row information
+/*	fprintf(stderr,"\n =======================\n");
+	fprintf(stderr,"done row information\n");
+	for(i=0;i<tree->size;i++)
+	{
+		if(tree->node[i]!=NULL)
+		{
+			fprintf(stderr,"i:%d, doneRowBegin:%d,doneRowEnd:%d\n",i,tree->node[i]->doneRowBegin,tree->node[i]->doneRowEnd);
+		}
+	}
+	fprintf(stderr,"\n =======================\n");
+*/	
+@
+
+
+1.27
+log
+@ok version
+@
+text
+@d9 61
+a69 1
+static void updateLink(SparseQuadMatrix* sub_l_link, SparseQuadMatrix* sub_u_link, const SparseQuadMatrix* subLinkInput, const SparseQuadMatrix *partial_u,const int pid)
+d81 1
+a81 1
+	time_t t1,t2,t3,t4;
+a97 1
+//			QuadElement *scale = createQuadElement(gvNum);
+a106 1
+//					QuadElement *val3 = createQuadElement(gvNum);	
+a107 1
+//					QuadElement *data = createQuadElement(gvNum);		
+a113 2
+//					freeQuadElement(val3);
+//					freeQuadElement(data);
+a117 1
+//			freeQuadElement(scale);		
+a122 3
+//	freeQuadElement(data);
+//	freeQuadElement(scale);		
+
+d133 8
+d143 14
+a156 2
+	//======================================
+	
+a187 2
+//	printf("t2-t1:%g\n",difftime(t2,t1));
+//	printf("t3-t2:%g\n",difftime(t3,t2));
+d193 24
+d287 1
+d308 1
+d323 1
+d329 1
+d331 1
+d333 3
+d389 8
+d416 2
+a417 2
+			freeALU(ptr->alu[leftIndex]);
+			freeALU(ptr->alu[rightIndex]);
+d419 1
+d438 111
+d558 2
+d600 4
+d614 1
+a618 1
+//	fprintf(stderr,"before enter thread\n");
+d620 2
+d624 1
+d627 1
+d640 1
+@
+
+
+1.26
+log
+@ok version
+@
+text
+@d117 3
+a119 3
+	printf("t2-t1:%g\n",difftime(t2,t1));
+	printf("t3-t2:%g\n",difftime(t3,t2));
+	printf("t4-t3:%g\n",difftime(t4,t3));
+d193 1
+a193 1
+			fprintf(stderr,"i:%d, rowBegin:%d, rowEnd:%d, aRow:%d, aCol:%d\n",i,tree->node[i]->rowBegin,tree->node[i]->rowEnd,aRow,aCol);
+d263 1
+a263 1
+			fprintf(stderr,"after init link\n");
+d290 1
+a290 1
+			fprintf(stderr,"update time:%g\n",difftime(updateEnd,updateBegin));
+d350 1
+a350 1
+	fprintf(stderr,"\n =======================\n");
+d360 1
+a360 1
+	
+d391 1
+a391 1
+	fprintf(stderr,"before enter thread\n");
+@
+
+
+1.25
+log
+@ok version ~
+@
+text
+@d388 1
+a388 1
+		par->pid = i;
+@
+
+
+1.24
+log
+@ok version ~ new pid function ...
+@
+text
+@d234 1
+a234 2
+//			luSparseQuadMatrix(ptr->alu[*indexInQueue]->l,ptr->alu[*indexInQueue]->u,ptr->alu[*indexInQueue]->a,1);
+			luPidSparseQuadMatrix(ptr->alu[*indexInQueue]->l,ptr->alu[*indexInQueue]->u,ptr->alu[*indexInQueue]->a,1,pid);
+d341 7
+a394 1
+//	for(i=0;i<threadNum;i++) status = pthread_create(&pid[i],NULL,testParallelKernel,par);	
+@
+
+
+1.23
+log
+@ok version ~ some new pid functions ~~~
+@
+text
+@d12 1
+a12 1
+	copySparseQuadMatrix(sub_u_link,subLinkInput);
+d54 1
+a54 1
+						setSparseQuadMatrix(sub_u_link,data,i,colInPartialU);
+d65 1
+a65 1
+			delSparseQuadMatrix(sub_u_link,i,colInSubU);
+d94 1
+a94 1
+			delSparseQuadMatrix(sub_u_link,j,row_partial_u+i);
+d106 1
+a106 1
+					setSparseQuadMatrix(sub_u_link,data,j,insCol);
+a162 1
+//				aluList[i]->l = createSparseDoubleMatrix(aRow,aCol);
+d285 1
+a285 1
+			SparseQuadMatrix *sub_u_link = createSparseQuadMatrix(rowLink,colLink,gvNum);
+d302 1
+a302 1
+			freeSparseQuadMatrix(sub_u_link);
+@
+
+
+1.22
+log
+@ok version ~ partition to 4 is a magic number ~
+@
+text
+@d60 1
+a60 1
+				setSparseQuadMatrix(sub_l_link,scale,i,colInSubU);
+d78 1
+a78 1
+		setSparseQuadMatrix(sub_l_link,element,i,row_partial_u+i);
+d109 1
+a109 1
+				setSparseQuadMatrix(sub_l_link,scale,j,row_partial_u+i);
+d285 1
+a285 1
+			SparseQuadMatrix *sub_l_link = createSparseQuadMatrix(rowLink,colLink,gvNum);
+d302 1
+a302 1
+			freeSparseQuadMatrix(sub_l_link);
+@
+
+
+1.21
+log
+@ok version ~ parallel mem support ~ better
+@
+text
+@d39 1
+a39 1
+			divQuadElement(scale,valInSubU,partialUPtr->data);
+d93 1
+a93 1
+			divQuadElement(scale,val1,val2);
+d235 2
+a236 1
+			luSparseQuadMatrix(ptr->alu[*indexInQueue]->l,ptr->alu[*indexInQueue]->u,ptr->alu[*indexInQueue]->a,1);
+@
+
+
+1.20
+log
+@ok version ..
+@
+text
+@d9 1
+a9 1
+static void updateLink(SparseQuadMatrix* sub_l_link, SparseQuadMatrix* sub_u_link, const SparseQuadMatrix* subLinkInput, const SparseQuadMatrix *partial_u)
+a23 36
+/*
+	SparseQuadElement *val2Base = NULL;
+	for(i=0;i<row_partial_u;i++)
+	{
+		SparseQuadElement *val1Base = NULL;
+		SparseQuadElement *delRowBase = NULL;
+		SparseQuadElement *delColBase = NULL;
+		SparseQuadElement *setLRowBase = NULL;
+		SparseQuadElement *setLColBase = NULL;
+		const QuadElement *val2 = getFastRowSparseQuadMatrix(partial_u,i,i,&val2Base);
+		for(j=0;j<row_subLink;j++)
+		{
+			const QuadElement *val1 = getFastRowSparseQuadMatrix(sub_u_link,j,i,&val1Base); // too dense op here ....
+			QuadElement *scale = createQuadElement(gvNum);		
+			divQuadElement(scale,val1,val2);
+			delFastSparseQuadMatrix(sub_u_link,j,i,&delRowBase,&delColBase);
+
+			if(!isEmptyQuadElement(scale))
+			{
+			   	SparseQuadElement *ptrInU = partial_u->rowIndex[i]->rowLink;
+				SparseQuadElement *valu1Base = NULL;
+				SparseQuadElement *valu2Base = NULL;
+				SparseQuadElement *setURowBase = NULL;
+				SparseQuadElement *setUColBase = NULL;
+				if(ptrInU!=NULL) ptrInU = ptrInU->rowLink; // because ptrInU[j][i] is deleted
+				while(ptrInU!=NULL)
+				{
+					const int insCol = ptrInU->col;
+					const QuadElement *valu1 = getFastRowSparseQuadMatrix(partial_u,i,insCol,&valu1Base);
+					const QuadElement *valu2 = getFastRowSparseQuadMatrix(sub_u_link,j,insCol,&valu2Base);
+					QuadElement *val3 = createQuadElement(gvNum);	
+					mulQuadElement(val3,scale,valu1);
+					QuadElement *data = createQuadElement(gvNum);		
+					subQuadElement(data,valu2,val3);
+					setFastSparseQuadMatrix(sub_u_link,data,j,insCol,&setURowBase,&setUColBase);
+					ptrInU = ptrInU->rowLink;
+a24 11
+					freeQuadElement(val3);
+					freeQuadElement(data);
+				}
+				setFastSparseQuadMatrix(sub_l_link,scale,j,i,&setLRowBase,&setLColBase);
+			}
+			freeQuadElement(scale);
+		}
+	}
+*/
+
+	
+d49 1
+a49 1
+					mulQuadElement(val3,scale,partialUPtr->data);
+a86 2
+//	QuadElement *data = createQuadElement(gvNum);
+
+a92 1
+//			QuadElement *scale = createQuadElement(gvNum);
+d104 1
+a104 3
+//					QuadElement *temp3 = createQuadElement(gvNum);
+//					QuadElement *data = createQuadElement(gvNum);
+					mulQuadElement(temp3,scale,temp1);
+a107 2
+//					freeQuadElement(temp3);
+//					freeQuadElement(data);
+a110 1
+//			freeQuadElement(scale);
+d218 1
+d289 1
+a289 1
+			updateLink(sub_l_link,sub_u_link,link,tempU);
+d373 12
+a384 5
+	ParallelLUQuadShareData *par = getMempoolSet(sizeof(ParallelLUQuadShareData));
+	par->alu = aluList;
+	par->freeSinkList = freeSinkList;
+	par->tree = tree;
+	par->a = a;
+d388 2
+a389 1
+	for(i=0;i<threadNum;i++) status = pthread_create(&pid[i],NULL,testParallelKernel,par);	
+d394 2
+a395 2
+	copySparseQuadMatrix(l,par->alu[1]->l);
+	copySparseQuadMatrix(u,par->alu[1]->u);
+d397 5
+a401 1
+	freeALU(par->alu[1]);
+a402 1
+	retMempoolSet(par,sizeof(ParallelLUQuadShareData));
+@
+
+
+1.19
+log
+@ok version ... some get and ret to mempool will decrease the performance ....
+@
+text
+@d116 2
+a117 2
+	freeQuadElement(data);
+	freeQuadElement(scale);		
+d130 6
+d142 1
+a142 1
+			QuadElement *scale = createQuadElement(gvNum);
+d154 2
+a155 2
+					QuadElement *temp3 = createQuadElement(gvNum);
+					QuadElement *data = createQuadElement(gvNum);
+d160 2
+a161 2
+					freeQuadElement(temp3);
+					freeQuadElement(data);
+d165 1
+a165 1
+			freeQuadElement(scale);
+d168 3
+@
+
+
+1.18
+log
+@no ok version .... open the mark block can recover it ...
+@
+text
+@d71 5
+d82 1
+d85 1
+a85 1
+			QuadElement *scale = createQuadElement(gvNum);
+d87 1
+a87 6
+			delSparseQuadMatrix(sub_u_link,i,colInSubU);
+			printf("scale:\n");
+			if(scale!=NULL)
+			{
+				dumpQuadElement(scale);
+			}
+a89 1
+			/*
+d95 1
+a95 1
+					QuadElement *val3 = createQuadElement(gvNum);	
+d97 1
+a97 1
+					QuadElement *data = createQuadElement(gvNum);		
+d99 4
+a102 1
+					setSparseQuadMatrix(sub_u_link,data,i,colInPartialU);
+d104 2
+a105 2
+					freeQuadElement(val3);
+					freeQuadElement(data);
+a107 1
+			*/
+d109 2
+a110 1
+			freeQuadElement(scale);
+d112 1
+d115 3
+a118 1
+	printf("ok here\n");
+@
+
+
+1.17
+log
+@ok verison ... add comment in uodate ... too dense ....
+@
+text
+@d24 1
+a28 1
+	//	SparseQuadElement *val2Base = NULL;
+a36 1
+	//		const QuadElement *val2 = getFastRowSparseQuadMatrix(partial_u,i,i,&val2Base);
+d69 44
+@
+
+
+1.16
+log
+@ok version ~ 4 parallel version will cause some redundant updatate ............
+@
+text
+@d36 1
+a36 1
+			const QuadElement *val1 = getFastRowSparseQuadMatrix(sub_u_link,j,i,&val1Base);
+@
+
+
+1.15
+log
+@ok version ~ new get fast version
+@
+text
+@d21 4
+a24 1
+	
+d27 7
+d36 2
+a37 2
+			const QuadElement *val1 = getSparseQuadMatrix(sub_u_link,j,i);
+			const QuadElement *val2 = getSparseQuadMatrix(partial_u,i,i);
+d40 1
+a40 1
+			delSparseQuadMatrix(sub_u_link,j,i);
+d45 4
+a48 2
+				const SparseQuadElement *valu1 = NULL;
+				const SparseQuadElement *valu2 = NULL;
+d53 2
+a54 4
+					valu1 = getFastRowSparseQuadMatrix(partial_u,i,insCol,valu1);
+					valu2 = getFastRowSparseQuadMatrix(sub_u_link,j,insCol,valu2);
+//					valu1 = getSparseQuadMatrix(partial_u,i,insCol);
+//					valu2 = getSparseQuadMatrix(sub_u_link,j,insCol);
+d56 1
+a56 8
+					if(valu1!=NULL)
+					{
+						mulQuadElement(val3,scale,valu1->data);
+					}
+					else
+					{
+						mulQuadElement(val3,scale,NULL);
+					}
+d58 2
+a59 9
+					if(valu2!=NULL)
+					{
+						subQuadElement(data,valu2->data,val3);
+					}
+					else
+					{
+						subQuadElement(data,NULL,val3);
+					}
+					setSparseQuadMatrix(sub_u_link,data,j,insCol);
+d65 1
+a65 1
+				setSparseQuadMatrix(sub_l_link,scale,j,i);
+d71 1
+d79 1
+d113 4
+@
+
+
+1.14
+log
+@ok version ~ fast get error ~ can not write like that ...
+@
+text
+@d35 2
+a36 2
+				const QuadElement *valu1 = NULL;
+				const QuadElement *valu2 = NULL;
+d41 13
+a53 6
+//					valu1 = getFastRowSparseQuadMatrix(partial_u,i,insCol,valu1);
+//					valu2 = getFastRowSparseQuadMatrix(sub_u_link,j,insCol,valu2);
+					valu1 = getSparseQuadMatrix(partial_u,i,insCol);
+					valu2 = getSparseQuadMatrix(sub_u_link,j,insCol);
+					QuadElement *val3 = createQuadElement(gvNum);		
+					mulQuadElement(val3,scale,valu1);
+d55 8
+a62 1
+					subQuadElement(data,valu2,val3);
+@
+
+
+1.13
+log
+@ok version ~ fast get ~ not complete ...
+@
+text
+@d35 2
+a36 2
+				const QuadElement *val1 = NULL;
+				const QuadElement *val2 = NULL;
+d41 4
+a44 4
+					val1 = getFastRowSparseQuadMatrix(partial_u,i,insCol,val1);
+					val2 = getFastRowSparseQuadMatrix(sub_u_link,j,insCol,val2);
+//					val1 = getSparseQuadMatrix(partial_u,i,insCol);
+//					val2 = getSparseQuadMatrix(sub_u_link,j,insCol);
+d46 1
+a46 1
+					mulQuadElement(val3,scale,val1);
+d48 1
+a48 1
+					subQuadElement(data,val2,val3);
+@
+
+
+1.12
+log
+@ok version ~
+@
+text
+@d35 2
+d41 4
+a44 2
+					const QuadElement *val1 = getSparseQuadMatrix(partial_u,i,insCol);
+					const QuadElement *val2 = getSparseQuadMatrix(sub_u_link,j,insCol);
+@
+
+
+1.11
+log
+@quad linear ok ?
+@
+text
+@d262 3
+d266 3
+@
+
+
+1.10
+log
+@done ?
+@
+text
+@d32 1
+a32 1
+			if(isEmptyQuadElement(scale))
+d74 1
+a74 1
+			if(isEmptyQuadElement(scale))
+@
+
+
+1.9
+log
+@*** empty log message ***
+@
+text
+@d216 1
+a216 1
+			fprintf(stderr,"cross done:%d\n\n",*indexInQueue);
+d288 5
+d294 1
+d355 9
+d365 5
+@
+
+
+1.8
+log
+@*** empty log message ***
+@
+text
+@d53 3
+d57 37
+a94 1
+
+@
+
+
+1.7
+log
+@add some to updateLink?
+/
+/
+@
+text
+@d11 1
+d21 37
+@
+
+
+1.6
+log
+@update the kernel function
+@
+text
+@d11 9
+d108 1
+a108 1
+		freeSparseQuadeMatrix(alu->u);
+d169 36
+@
+
+
+1.5
+log
+@*** empty log message ***
+@
+text
+@d108 59
+@
+
+
+1.4
+log
+@*** empty log message ***
+@
+text
+@d15 98
+d124 44
+a167 1
+//	getDoneRowInfo(tree,freeSinkList);
+@
+
+
+1.3
+log
+@*** empty log message ***
+@
+text
+@d22 5
+@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@a5 72
+static gdsl_element_t alloc_int(void *ptr)
+{
+
+	int *n = (int *) ptr;
+	int *value = getMempoolSet(sizeof(int));
+
+	// copy from n to value
+	memcpy(value,n,sizeof(int));
+	
+
+	return (gdsl_element_t) value;
+}
+
+
+static void free_int(gdsl_element_t e)
+{
+	retMempoolSet(e,sizeof(int));
+}
+
+
+static int gdsl_queue_get_size_mutex(gdsl_queue_t queue)
+{
+	int n;
+	n = gdsl_queue_get_size(queue);
+	return n;
+}
+
+
+
+static void getInitSinkList(gdsl_queue_t freeSinkList, const ParallelETree *tree)
+{
+	int i;
+	for(i=0;i<tree->size;i++)
+	{
+		if(tree->node[i]!=NULL)
+		{
+			if(tree->node[i]->type == lu)
+			{
+				gdsl_queue_insert(freeSinkList,&i);
+			}
+		}
+	}
+}
+
+
+
+static void updateFreeSinkList(gdsl_queue_t freeSinkList, ParallelETree *tree, const int currentNodeIndex)
+{
+
+	int rootIndex = currentNodeIndex/2;
+	const int leftIndex = rootIndex*2;
+	const int rightIndex = rootIndex*2 + 1;
+
+	tree->node[currentNodeIndex]->visitLog = visit;
+
+	if(tree->node[rootIndex]==NULL) return;
+
+	if( tree->node[leftIndex]->visitLog==visit && tree->node[rightIndex]->visitLog==visit )
+	{
+		int temp1,temp2;
+		gdsl_queue_insert(freeSinkList,&rootIndex);
+		temp1 = GSL_MIN(tree->node[leftIndex]->doneRowBegin,tree->node[rightIndex]->doneRowBegin);
+		temp2 = GSL_MIN(tree->node[leftIndex]->rowBegin,tree->node[rightIndex]->rowBegin);
+		tree->node[rootIndex]->doneRowBegin = GSL_MIN(temp1,temp2);
+		temp1 = GSL_MAX(tree->node[leftIndex]->doneRowEnd,tree->node[rightIndex]->doneRowEnd);
+		temp2 = GSL_MAX(tree->node[leftIndex]->rowEnd,tree->node[rightIndex]->rowEnd);
+		tree->node[rootIndex]->doneRowEnd = GSL_MAX(temp1,temp2);
+
+	}
+}
+
+
+d19 3
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d4 84
+@

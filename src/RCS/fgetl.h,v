@@ -1,0 +1,33 @@
+head	1.1;
+access;
+symbols;
+locks; strict;
+comment	@ * @;
+
+
+1.1
+date	2010.06.24.09.04.14;	author r97124;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@#ifndef FGETL_H
+#define FGETL_H
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+char *fgetl(char *line,const int num,FILE *fp);
+
+#endif
+@

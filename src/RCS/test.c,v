@@ -1,0 +1,584 @@
+head	1.15;
+access;
+symbols;
+locks
+	d96041:1.15; strict;
+comment	@ * @;
+
+
+1.15
+date	2010.11.14.12.48.53;	author d96041;	state Exp;
+branches;
+next	1.14;
+
+1.14
+date	2010.11.12.10.08.37;	author d96041;	state Exp;
+branches;
+next	1.13;
+
+1.13
+date	2010.10.27.13.18.26;	author d96041;	state Exp;
+branches;
+next	1.12;
+
+1.12
+date	2010.10.23.10.47.11;	author d96041;	state Exp;
+branches;
+next	1.11;
+
+1.11
+date	2010.10.18.11.50.59;	author d96041;	state Exp;
+branches;
+next	1.10;
+
+1.10
+date	2010.10.12.12.16.13;	author d96041;	state Exp;
+branches;
+next	1.9;
+
+1.9
+date	2010.10.11.10.39.03;	author d96041;	state Exp;
+branches;
+next	1.8;
+
+1.8
+date	2010.10.09.09.10.45;	author d96041;	state Exp;
+branches;
+next	1.7;
+
+1.7
+date	2010.09.17.08.56.55;	author d96041;	state Exp;
+branches;
+next	1.6;
+
+1.6
+date	2010.09.16.12.47.02;	author d96041;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	2010.09.14.16.18.13;	author d96041;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	2010.08.28.08.42.46;	author d96041;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	2010.08.23.13.07.49;	author d96041;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2010.07.03.08.56.40;	author d96041;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2010.06.24.06.12.38;	author r97124;	state Exp;
+branches;
+next	;
+
+
+desc
+@.
+@
+
+
+1.15
+log
+@ok version
+the monte num is removed
+has a potential bug .... can not re-run the montesample inside the loop
+@
+text
+@#include <time.h>
+#include "quadelement.h"
+#include "quadmatrix.h"
+#include "dlmread.h"
+#include "gsl_extern.h"
+#include "sparsequadmatrix.h"
+#include "mempool.h"
+#include "quadlinear.h"
+#include "quadnonlinear.h"
+#include "sparsegvarient.h"
+#include "montesample.h"
+#include "transfernetlist.h"
+#include "sparsegvarient_monte.h"
+#include "montelinear.h"
+#include "montenonlinear.h"
+#include "plot.h"
+#include "sparsedoublematrix.h"
+
+
+
+
+
+//=======================================================================
+
+struct RNG_PAR
+{
+	gsl_rng *rng;
+	gsl_matrix *weight;
+};
+
+typedef struct RNG_PAR RNG_PAR;
+
+
+RNG_PAR *createAndSetRNG_PAR(const SparseNetlistQuad *quadNetlist)
+{
+	RNG_PAR *dest = (RNG_PAR *)malloc(sizeof(RNG_PAR));
+	dest->rng = createRNG();
+	dest->weight = gsl_matrix_alloc(quadNetlist->gvNum,quadNetlist->gvNum);
+
+	gsl_matrix *cov = gsl_matrix_alloc(quadNetlist->gvNum,quadNetlist->gvNum);
+	double_to_gsl_matrix(cov,quadNetlist->s);	
+	getGVWeight(dest->weight,cov);
+	gsl_matrix_free(cov);
+
+	return dest;
+}
+
+
+void freeRNG_PAR(RNG_PAR *ptr)
+{
+	gsl_rng_free(ptr->rng);
+	gsl_matrix_free(ptr->weight);
+	free(ptr);
+}
+
+
+//=======================================================================
+
+
+RNG_PAR *preMonte(const SparseNetlistQuad *quadSrc)
+{
+	RNG_PAR *rng_par = createAndSetRNG_PAR(quadSrc);
+
+	return rng_par;
+}
+
+
+
+//=======================================================================
+
+
+
+int main(int argc,char *argv[])
+{
+	const char *filename = argv[1];
+	const int threadNum = atoi(argv[2]);
+	const char *simuType = argv[3];
+	
+	time_t symbolStart,symbolEnd,memStart,memEnd,parseStart,parseEnd,simulationStart,simulationEnd,resultStart,resultEnd,freeStart,freeEnd,monteGenStart,monteGenEnd;
+
+	// preprocessing block .... common block
+	time(&symbolStart);
+	SparseNetlistQuad *sparseNetlist = symbolicParseSparseQuadInput(filename);
+	time(&symbolEnd);
+	fprintf(stderr,"header parse complete\n");
+
+	time(&memStart);
+//	int list[17] = {512*1024,512*1024,512*1024,64,64,64,64,32,32,32,32,32,32,32,16,16,16};
+//	int list[17] = {512*1024,512*1024,512*1024,64,64,64,64,32,32,32,32,16,16,16,0,0,0};
+	int list[17] = {512,512,512,8,8,8,8,8,8,8,8,8,8,8,0,0,0};
+	createMempoolSet(16,17,1.5*1024*1024*1024,list,16); // 0 is used for "main thread", threadNum+1 is used for "extra-root thread"
+	time(&memEnd);
+	fprintf(stderr,"memory alloc complete\n");
+
+	time(&parseStart);
+	parseSparseQuadInput(sparseNetlist,filename);
+	time(&parseEnd);
+	fprintf(stderr,"netlist parse complete\n");
+	// end of preprocessing block
+
+	if(strcmp("-quad",simuType) == 0)
+	{
+		// argv[4] = "-node"
+		const char *dumpNode = argv[4];
+		const int dumpNodeIndex = atoi(argv[4]) -1 ;
+		QuadMatrix *result = createQuadMatrix(1,sparseNetlist->stepNum,sparseNetlist->gvNum);
+
+		if(sparseNetlist->type == nonlinear)
+		{
+			time(&simulationStart);
+			quadNonlinearSimulation(sparseNetlist,result,threadNum,dumpNodeIndex);
+			time(&simulationEnd);
+			fprintf(stderr,"nonlinear simulation complete\n");
+		}
+		else
+		{
+			time(&simulationStart);
+			sparseQuadLinearSimulation(sparseNetlist,result,threadNum,dumpNodeIndex);
+			time(&simulationEnd);
+			fprintf(stderr,"linear simulation complete\n");
+		}
+
+		time(&resultStart);
+		dumpSparseQuadResult(stdout,result,sparseNetlist);
+		time(&resultEnd);
+		fprintf(stderr,"output result complete\n");
+
+		time(&freeStart);
+		freeQuadMatrix(result);
+		freeSparseNetlistQuad(sparseNetlist);
+//		usageMempoolSet(stderr);
+		freeMempoolSet();
+		time(&freeEnd);
+		fprintf(stderr,"free memory complete\n");
+
+		fprintf(stderr,"\n");
+		fprintf(stderr,"===== The Stats of Quadratic Solver ===== \n");
+		fprintf(stderr,"header parse time: %g\n",difftime(symbolEnd,symbolStart));
+		fprintf(stderr,"memory pre-allocation time: %g\n",difftime(memEnd,memStart));
+		fprintf(stderr,"netlist parse time: %g\n",difftime(parseEnd,parseStart));
+		fprintf(stderr,"simulation time: %g\n",difftime(simulationEnd,simulationStart));
+		fprintf(stderr,"output time: %g\n",difftime(resultEnd,resultStart));
+		fprintf(stderr,"memory free time: %g\n",difftime(freeEnd,freeStart));
+	}
+	else if(strcmp("-monte",simuType) == 0)
+	{
+		int i,j;
+		const char *dumpNode = argv[4];
+		const int dumpNodeIndex = atoi(argv[4]) -1 ;
+
+		RNG_PAR *rng_par = preMonte(sparseNetlist);
+		MonteSample *sample = createMonteSample(sparseNetlist->gvNum);
+		
+		double *result = (double *)malloc(sizeof(double )*sparseNetlist->stepNum);
+		memset(result,0,sizeof(double)*sparseNetlist->stepNum);
+
+		time(&monteGenStart);
+		setMonteSample(sample,rng_par->weight,rng_par->rng);
+		MonteNetlist *monteNetlist = createMonteNetlist(sparseNetlist,sample);
+		time(&monteGenEnd);
+		fprintf(stderr,"monte sample generation complete\n");
+		
+		freeRNG_PAR(rng_par);
+		freeMonteSample(sample,sparseNetlist->gvNum);
+		freeSparseNetlistQuad(sparseNetlist);
+
+		if(monteNetlist->type == linear)
+		{
+			time(&simulationStart);
+			monteLinearSimulation(monteNetlist,result,threadNum,dumpNodeIndex);
+			time(&simulationEnd);
+			fprintf(stderr,"linear simulation complete\n");
+		}
+		else
+		{
+			time(&simulationStart);
+			monteNonlinearSimulation(monteNetlist,result,1,dumpNodeIndex);
+			time(&simulationEnd);
+			fprintf(stderr,"nonlinear simulation complete\n");
+		}
+
+		time(&resultStart);
+		dumpMonteResult(stdout,result,monteNetlist);
+		time(&resultEnd);
+		freeMonteNetlist(monteNetlist);
+		fprintf(stderr,"output result complete\n");
+	
+		time(&freeStart);
+//		freeRNG_PAR(rng_par);
+//		freeMonteSample(sample,sparseNetlist->gvNum);
+		free(result);
+//		freeSparseNetlistQuad(sparseNetlist);
+//		usageMempoolSet(stderr);
+		freeMempoolSet();
+		time(&freeEnd);
+		fprintf(stderr,"free memory complete\n");
+		
+		fprintf(stderr,"\n");
+		fprintf(stderr,"===== The Stats of Monte Solver ===== \n");
+		fprintf(stderr,"header parse time: %g\n",difftime(symbolEnd,symbolStart));
+		fprintf(stderr,"memory pre-allocation time: %g\n",difftime(memEnd,memStart));
+		fprintf(stderr,"netlist parse time: %g\n",difftime(parseEnd,parseStart));
+		fprintf(stderr,"last monte sample generation time: %g\n",difftime(monteGenEnd,monteGenStart));
+		fprintf(stderr,"last simulation time: %g\n",difftime(simulationEnd,simulationStart));
+		fprintf(stderr,"last output time: %g\n",difftime(resultEnd,resultStart));
+		fprintf(stderr,"memory free time: %g\n",difftime(freeEnd,freeStart));
+	}
+	else
+	{
+	}
+
+
+
+
+
+
+	return 0;
+}
+
+
+
+@
+
+
+1.14
+log
+@ok version
+@
+text
+@d88 3
+a90 1
+	int list[17] = {512*1024,512*1024,512*1024,64,64,64,64,32,32,32,32,32,32,32,16,16,16};
+d148 2
+a149 3
+		const int monteNum = atoi(argv[4]);
+		const char *dumpNode = argv[5];
+		const int dumpNodeIndex = atoi(argv[5]) -1 ;
+d157 11
+a167 1
+		for(i=0;i<monteNum;i++)
+d169 4
+a172 27
+			fprintf(stderr,"\n ===== monte loop: %d =====\n",i+1);
+			time(&monteGenStart);
+			setMonteSample(sample,rng_par->weight,rng_par->rng);
+			MonteNetlist *monteNetlist = createMonteNetlist(sparseNetlist,sample);
+			time(&monteGenEnd);
+			fprintf(stderr,"monte sample generation complete\n");
+
+			if(monteNetlist->type == linear)
+			{
+				time(&simulationStart);
+				monteLinearSimulation(monteNetlist,result,threadNum,dumpNodeIndex);
+				time(&simulationEnd);
+				fprintf(stderr,"linear simulation complete\n");
+			}
+			else
+			{
+				time(&simulationStart);
+				monteNonlinearSimulation(monteNetlist,result,1,dumpNodeIndex);
+				time(&simulationEnd);
+				fprintf(stderr,"nonlinear simulation complete\n");
+			}
+
+			time(&resultStart);
+			dumpMonteResult(stdout,result,monteNetlist);
+			time(&resultEnd);
+			freeMonteNetlist(monteNetlist);
+			fprintf(stderr,"output result complete\n");
+d174 13
+d189 2
+a190 2
+		freeRNG_PAR(rng_par);
+		freeMonteSample(sample,sparseNetlist->gvNum);
+d192 1
+a192 1
+		freeSparseNetlistQuad(sparseNetlist);
+@
+
+
+1.13
+log
+@ok version ~ new create mempools
+@
+text
+@d89 1
+a89 1
+	createMempoolSet(16,17,4*1024*1024,list,16); // 0 is used for "main thread", threadNum+1 is used for "extra-root thread"
+a146 1
+		// argv[5] = "-node"
+d192 1
+a192 1
+		usageMempoolSet(stderr);
+@
+
+
+1.12
+log
+@ok version
+@
+text
+@a22 49
+
+//MempoolSet *pool;
+
+/*
+// suck global variable implement 
+void allocSparseQuadMempool(const SparseNetlistQuad *ptr)
+{
+	const int nodeNum = ptr->nodeNum;
+	const int avgDeg = 3;
+	const int stepNum = ptr->stepNum;
+	const int overHead = 2;
+
+	const int maxMemSize = 5000000;
+	const int estMemSize = nodeNum * avgDeg * stepNum * overHead; 
+	
+	quadElementPool = createMempool("quadElementPool",sizeof(QuadElement), GSL_MIN_INT(maxMemSize,estMemSize));
+	betaPool = createMempool("betaPool",sizeof(double)*ptr->gvNum,GSL_MIN_INT(maxMemSize,estMemSize));
+	gammaPool = createMempool("gammaPool",sizeof(double)*ptr->gvNum*ptr->gvNum,GSL_MIN_INT(maxMemSize,estMemSize));
+	sparseQuadElementPool = createMempool("sparseQuadElementPool",sizeof(SparseQuadElement),GSL_MIN_INT(maxMemSize,estMemSize));
+
+	
+	if(ptr->type == nonlinear)
+	{
+		gVarientIJPool = createMempool("gVarientIJPool",sizeof(GVarientIJ),ptr->nodeNum*5);
+		vdsListPool = createMempool("vdsListPool",sizeof(double)*241,100);
+		vgsListPool = createMempool("vgsListPool",sizeof(double)*241,100);
+		gControlInfoPool = createMempool("gControlInfoPool",sizeof(GControlInfo),100);
+	}
+}
+
+
+static void freeSparseQuadMempool(const SparseNetlistQuad *ptr)
+{
+	freeMempool(quadElementPool);
+	freeMempool(betaPool);
+	freeMempool(gammaPool);
+	freeMempool(sparseQuadElementPool);
+
+	if(ptr->type == nonlinear)
+	{
+		freeMempool(gVarientIJPool);
+		freeMempool(vdsListPool);
+		freeMempool(vgsListPool);
+		freeMempool(gControlInfoPool);
+	}
+}
+*/
+
+
+d89 1
+a89 1
+	createMempoolSetNew(16,17,128*1024*1024,list,16); // 0 is used for "main thread", threadNum+1 is used for "extra-root thread"
+@
+
+
+1.11
+log
+@ok version ~ change the memory pool size to 16
+@
+text
+@a136 1
+//	createMempoolSet(16,17,2*1024*1024,64,4);
+d138 1
+a138 1
+	createMempoolSetNew(16,17,8*1024*1024,list,16); // 0 is used for "main thread", threadNum+1 is used for "extra-root thread"
+@
+
+
+1.10
+log
+@ok version
+memory leak of alu list
+@
+text
+@d139 1
+a139 1
+	createMempoolSetNew(16,17,8*1024*1024,list,threadNum+2); // 0 is used for "main thread", threadNum+1 is used for "extra-root thread"
+@
+
+
+1.9
+log
+@ok version
+@
+text
+@d179 1
+a179 1
+		usageMempoolSet(stderr);
+@
+
+
+1.8
+log
+@ok version
+@
+text
+@d138 1
+a138 1
+	int list[17] = {512*1024,512*1024,512*1024,64,64,64,64,64,64,64,64,64,64,64,64,64,64};
+d179 1
+a179 1
+//		usageMempoolSet(stderr);
+@
+
+
+1.7
+log
+@ok version
+@
+text
+@d139 1
+a139 1
+	createMempoolSetNew(16,17,8*1024*1024,list,threadNum+1); // +1 is used for "main thread"
+d179 1
+a179 1
+		usageMempoolSet(stderr);
+@
+
+
+1.6
+log
+@ok version
+@
+text
+@d20 4
+@
+
+
+1.5
+log
+@very ok version ~ new pid functions , done linear and non-linear
+@
+text
+@d134 2
+a135 2
+	int list[17] = {64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64};
+	createMempoolSetNew(16,17,8*1024*1024,list,4);
+@
+
+
+1.4
+log
+@ok version ~ new pid api
+@
+text
+@d135 1
+a135 1
+	createMempoolSetNew(16,17,2*1024*1024,list,4);
+@
+
+
+1.3
+log
+@ok version ~ for parallel version different pool for different thread
+@
+text
+@d133 3
+a135 1
+	createMempoolSet(16,17,2*1024*1024,65,4);
+@
+
+
+1.2
+log
+@fix the non-balanced elimination tree bug, the ok version
+@
+text
+@d133 1
+a133 1
+	createMempoolSet(16,17,2*1024*1024,65);
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d133 1
+a133 5
+	createMempoolSet(16,12,1*1024*1024,512);
+//	createMempoolSet(32,10,1*1024*1024,4096); //2010/06/17 c
+//	createMempoolSet(32,10,4*1024*1024,4*1024);  // 2010/06/17 b
+//	createMempoolSet(32,4,16*1024*1024,2*1024*1024); // 2010/06/17
+//	allocSparseQuadMempool(sparseNetlist);
+@

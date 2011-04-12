@@ -1,0 +1,658 @@
+head	1.9;
+access;
+symbols;
+locks
+	d96041:1.9; strict;
+comment	@ * @;
+
+
+1.9
+date	2010.11.14.12.48.53;	author d96041;	state Exp;
+branches;
+next	1.8;
+
+1.8
+date	2010.10.14.13.54.48;	author d96041;	state Exp;
+branches;
+next	1.7;
+
+1.7
+date	2010.10.13.13.17.16;	author d96041;	state Exp;
+branches;
+next	1.6;
+
+1.6
+date	2010.10.09.09.10.45;	author d96041;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	2010.10.06.14.04.02;	author d96041;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	2010.08.25.12.54.50;	author d96041;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	2010.07.17.09.04.42;	author d96041;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2010.07.04.07.37.08;	author d96041;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2010.06.28.12.54.28;	author r97124;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.9
+log
+@ok version
+back up here, bcz the "u" matrix in alu list has too many redundant
+does not need to save the whole u
+@
+text
+@#include "parallel_lu_common.h"
+
+
+static pthread_mutex_t freeSinkList_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+gdsl_element_t alloc_int(void *ptr)
+{
+
+	int *n = (int *) ptr;
+	int *value = getMempoolSet(sizeof(int));
+
+	// copy from n to value
+	memcpy(value,n,sizeof(int));
+	
+
+	return (gdsl_element_t) value;
+}
+
+
+void free_int(gdsl_element_t e)
+{
+	retMempoolSet(e,sizeof(int));
+}
+
+
+int gdsl_queue_get_size_mutex(gdsl_queue_t queue)
+{
+	int n;
+	n = gdsl_queue_get_size(queue);
+	return n;
+}
+
+
+
+void getInitSinkList(gdsl_queue_t freeSinkList, const ParallelETree *tree)
+{
+	int i;
+	for(i=0;i<tree->size;i++)
+//	for(i=tree->size-1;i>-1;i--)
+	{
+		if(tree->node[i]!=NULL)
+		{
+			if(tree->node[i]->type == lu)
+			{
+				gdsl_queue_insert(freeSinkList,&i);
+			}
+		}
+	}
+}
+
+
+
+const static int priorityTable[16] = {-1,1,9,2,13,10,6,3,15,14,12,11,8,7,5,4};
+
+
+void updateFreeSinkList(gdsl_queue_t freeSinkList, ParallelETree *tree, const int currentNodeIndex)
+{
+	int rootIndex = currentNodeIndex/2;
+	const int leftIndex = rootIndex*2;
+	const int rightIndex = rootIndex*2 + 1;
+	int mark[16] = {0};
+
+	tree->node[currentNodeIndex]->visitLog = visit;
+
+	if(tree->node[rootIndex]==NULL) return;
+
+
+	// reorder the queue .... suck implement
+	if( tree->node[leftIndex]->visitLog==visit && tree->node[rightIndex]->visitLog==visit )
+	{
+		int i,j;
+		int nnz = 0;
+		while(gdsl_queue_get_size(freeSinkList)!=0)
+		{
+			int *indexInQueue = gdsl_queue_get_head(freeSinkList);
+			gdsl_queue_remove(freeSinkList);
+			mark[*indexInQueue] = 1;
+			nnz++;
+			retMempoolSet(indexInQueue,sizeof(int));
+		}
+		mark[rootIndex] = 1;
+		nnz++;
+		for(i=0;i<nnz;i++)
+		{
+			int maxIndex = -1;
+			int maxPri = -1;
+			for(j=1;j<16;j++)
+			{
+				if( (mark[j]==1) && (priorityTable[j] > maxPri))
+				{
+					maxPri = priorityTable[j];
+					maxIndex = j;
+				}
+			}
+			mark[maxIndex] = 0;
+			gdsl_queue_insert(freeSinkList,&maxIndex);
+		}
+	}
+
+
+	if( tree->node[leftIndex]->visitLog==visit && tree->node[rightIndex]->visitLog==visit )
+	{
+		int temp1,temp2;
+//		gdsl_queue_insert(freeSinkList,&rootIndex);
+		temp1 = GSL_MIN(tree->node[leftIndex]->doneRowBegin,tree->node[rightIndex]->doneRowBegin);
+		temp2 = GSL_MIN(tree->node[leftIndex]->rowBegin,tree->node[rightIndex]->rowBegin);
+//		fprintf(stderr,"rootIndex:%d, left->rowBegin:%d, right->rowBegin:%d\n",rootIndex,tree->node[leftIndex]->rowBegin,tree->node[rightIndex]->rowBegin);
+		tree->node[rootIndex]->doneRowBegin = GSL_MIN(temp1,temp2);
+		temp1 = GSL_MAX(tree->node[leftIndex]->doneRowEnd,tree->node[rightIndex]->doneRowEnd);
+		temp2 = GSL_MAX(tree->node[leftIndex]->rowEnd,tree->node[rightIndex]->rowEnd);
+		tree->node[rootIndex]->doneRowEnd = GSL_MAX(temp1,temp2);
+
+	}
+}
+
+
+
+void getDoneRowInfo(ParallelETree *tree,const gdsl_queue_t freeSinkListSrc)
+{
+	int i;
+	gdsl_queue_t freeSinkList = gdsl_queue_alloc("freeSinkListTemp",alloc_int,free_int);
+	getInitSinkList(freeSinkList,tree);
+	// set the doneRow information
+	while(gdsl_queue_get_size(freeSinkList)!=0)
+	{
+		int *indexInQueue = gdsl_queue_get_head(freeSinkList);
+		gdsl_queue_remove(freeSinkList);
+		updateFreeSinkList(freeSinkList,tree,*indexInQueue);
+		retMempoolSet(indexInQueue,sizeof(int));
+	}
+
+	// recover the setting of visiting the tree
+	for(i=0;i<tree->size;i++)
+	{
+		if(tree->node[i] == NULL) continue;
+		else tree->node[i]->visitLog = notvisit;
+	}
+
+	gdsl_queue_free(freeSinkList);
+}
+
+
+
+void getDoneRowInfoNew(ParallelETree *tree)
+{
+	int i;
+	gdsl_queue_t freeSinkList = gdsl_queue_alloc("freeSinkListTemp",alloc_int,free_int);
+	getInitSinkList(freeSinkList,tree);
+	// set the doneRow information
+	while(gdsl_queue_get_size(freeSinkList)!=0)
+	{
+		int *indexInQueue = gdsl_queue_get_head(freeSinkList);
+		gdsl_queue_remove(freeSinkList);
+		updateFreeSinkList(freeSinkList,tree,*indexInQueue);
+		retMempoolSet(indexInQueue,sizeof(int));
+	}
+
+	// recover the setting of visiting the tree
+	for(i=0;i<tree->size;i++)
+	{
+		if(tree->node[i] == NULL) continue;
+		else tree->node[i]->visitLog = notvisit;
+	}
+
+	gdsl_queue_free(freeSinkList);
+}
+
+
+// =======================================================
+
+
+// with the post order (8 9 4 10 11 5 2 12 13 6 14 15 7 3 1)
+const static int nodeOrder[16] = {0,15,7,14,3,6,10,13,1,2,4,5,8,9,11,12};
+
+static pthread_mutex_t todolist_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+
+
+ToDoList *createToDoList(void)
+{
+	ToDoList *ptr = getMempoolSet(sizeof(ToDoList));
+	ptr->currentSize = 15;
+
+	// the init list
+	ptr->list[0] = 8;
+	ptr->list[1] = 9;
+	ptr->list[2] = 4;
+	ptr->list[3] = 10;
+
+	ptr->list[4] = 11;
+	ptr->list[5] = 5;
+	ptr->list[6] = 2;
+	ptr->list[7] = 12;
+
+	ptr->list[8] = 13;
+	ptr->list[9] = 6;
+	ptr->list[10] = 14;
+	ptr->list[11] = 15;
+
+	ptr->list[12] = 7;
+	ptr->list[13] = 3;
+	ptr->list[14] = 1;
+	return ptr;
+}
+
+
+
+void freeToDoList(ToDoList *ptr)
+{
+	retMempoolSet(ptr,sizeof(ToDoList));
+}
+
+
+
+
+// NOT thread safe
+// N is zero based
+static void pushNthToDoList(ToDoList *ptr,const int N, const int data)
+{
+	if(ptr->currentSize == 15)
+	{
+		printf("error!! todolist is full\n");
+	}
+	else
+	{
+		if(N == 0) // into first
+		{
+			memmove(&ptr->list[1],&ptr->list[0],sizeof(int)*(ptr->currentSize));
+			ptr->list[0] = data;
+			ptr->currentSize++;
+		}
+		else if(N == ptr->currentSize) // into end
+		{
+			ptr->list[ptr->currentSize] = data;
+			ptr->currentSize++;
+		}
+		else
+		{
+			memmove(&ptr->list[N+1],&ptr->list[N],sizeof(int)*(ptr->currentSize-N));
+			ptr->list[N] = data;
+			ptr->currentSize++;
+		}
+	}
+}
+
+
+
+
+
+void pushBackToDoList(ToDoList *ptr, int data)
+{
+	pthread_mutex_lock(&todolist_mutex);
+	if(ptr->currentSize == 15)
+	{
+		printf("error!! todolist is full\n");
+	}
+	else
+	{
+		ptr->list[ptr->currentSize] = data;
+		ptr->currentSize++;
+	}
+	pthread_mutex_unlock(&todolist_mutex);
+}
+
+
+
+
+static void pushByOrderToDoList(ToDoList *ptr, int data)
+{
+	pthread_mutex_lock(&todolist_mutex);
+	if(ptr->currentSize == 15)
+	{
+		printf("error!! todolist is full\n");
+	}
+	else
+	{
+		if(ptr->currentSize == 0)
+		{
+			ptr->list[ptr->currentSize] = data;
+			ptr->currentSize++;
+		}
+		else
+		{
+			int i = 0;
+			int dataOrder = nodeOrder[data];
+			/*
+			for(i=0;i<ptr->currentSize;i++)
+			{
+				int order =  nodeOrder[ptr->list[i]];
+				if(dataOrder < order) break;
+			}
+			*/
+			for(i=ptr->currentSize-1;i>-1;i--)
+			{
+				int order =  nodeOrder[ptr->list[i]];
+				if(dataOrder > order) break;
+			}
+			pushNthToDoList(ptr,i+1,data);
+		}
+	}
+	pthread_mutex_unlock(&todolist_mutex);
+}
+
+
+
+
+
+
+// NOT thread safe
+static void pushFirstToDoList(ToDoList *ptr, int data)
+{
+	if(ptr->currentSize == 15)
+	{
+		printf("error!! todolist is full\n");
+	}
+	else
+	{
+		memmove(&ptr->list[1],&ptr->list[0],sizeof(int)*(ptr->currentSize));
+		ptr->list[0] = data;
+		ptr->currentSize++;
+	}
+}
+
+
+
+
+
+// NOT thread safe
+// N is zero based
+static int getNthToDoList(ToDoList *ptr,const int N)
+{
+	int ret = -1;
+	if(N == 0) // the fist one
+	{
+		if(ptr->currentSize == 0)
+		{
+	//		printf("error!! todolist is empty\n");
+		}
+		else
+		{
+			ret = ptr->list[0];
+			ptr->currentSize--;
+			memmove(&ptr->list[0],&ptr->list[1],sizeof(int)*ptr->currentSize);
+		}	
+	}
+	else if(N == ptr->currentSize-1) // the last one
+	{
+		ret = ptr->list[N];
+		ptr->currentSize--;
+	}
+	else
+	{
+		if(ptr->currentSize == 0)
+		{
+			printf("error get Nth!! todolist is empty\n");
+		}
+		else
+		{
+			ret = ptr->list[N];
+			memmove(&ptr->list[N],&ptr->list[N+1],sizeof(int)*(ptr->currentSize-N+1));
+			ptr->currentSize--;
+		}
+	}
+	return ret;
+}
+
+
+
+
+int getFirstToDoList(ToDoList *ptr)
+{
+	pthread_mutex_lock(&todolist_mutex);
+	int ret = getNthToDoList(ptr,0);
+	pthread_mutex_unlock(&todolist_mutex);
+	return ret;
+}
+
+
+
+
+static int compareInt (const void * a, const void * b)
+{
+	int indexA = *(int *)a;
+	int indexB = *(int *)b;
+	return nodeOrder[indexA] - nodeOrder[indexB];
+}
+
+
+
+
+static void sortToDoList(ToDoList *ptr)
+{
+	pthread_mutex_lock(&todolist_mutex);
+	if(ptr->currentSize > 0)
+	{
+		qsort(ptr->list,ptr->currentSize,sizeof(int),compareInt);
+	}
+	pthread_mutex_unlock(&todolist_mutex);
+}
+
+
+
+
+// sort all parents to the head of the todolist
+void sortParentsToHeadToDoList(ToDoList *ptr,const int key)
+{
+	pthread_mutex_lock(&todolist_mutex);
+	int parent = key/2;
+	int i;
+	int ins = 0;
+	while(parent != 0)
+	{
+		int index = -1;
+		// find tht index in todolist;
+		for(i=0;i<ptr->currentSize;i++)
+		{
+			if(ptr->list[i] == parent)
+			{
+				index = i;
+				break;
+			}
+		}
+		if(index!=-1)
+		{
+			int val = getNthToDoList(ptr,index);
+			pushNthToDoList(ptr,ins,val);
+			ins++;
+		}
+		parent = parent / 2;
+	}
+	pthread_mutex_unlock(&todolist_mutex);
+}
+
+
+
+
+
+void dumpToDoList(FILE *fp,ToDoList *ptr)
+{
+	int i;
+	pthread_mutex_lock(&todolist_mutex);
+	fprintf(fp,"ToDoList: ");
+	for(i=0;i<ptr->currentSize;i++)
+	{
+		fprintf(fp,"%d, ",ptr->list[i]);
+	}
+	fprintf(fp,"\n");
+	pthread_mutex_unlock(&todolist_mutex);
+}
+
+
+
+// =================================
+
+int _activeThread = 0;
+
+static pthread_mutex_t activeThread_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void initActiveThread()
+{
+	pthread_mutex_lock(&activeThread_mutex);
+	_activeThread = 0;
+	pthread_mutex_unlock(&activeThread_mutex);
+}
+
+
+void incActiveThread()
+{
+	pthread_mutex_lock(&activeThread_mutex);
+	_activeThread = _activeThread+1;
+	pthread_mutex_unlock(&activeThread_mutex);
+}
+
+
+void decActiveThread()
+{
+	pthread_mutex_lock(&activeThread_mutex);
+	_activeThread = _activeThread-1;
+	pthread_mutex_unlock(&activeThread_mutex);
+}
+
+
+
+int getActiveThread(void)
+{
+	return _activeThread;
+}
+
+
+
+
+
+void safeWaitFlagMatrix(int *flag,int index)
+{
+	while(flag[index]!=1)
+	{
+		usleep(10000);
+	}
+	flag[index] = 0;
+	usleep(10000);
+	return;
+}
+@
+
+
+1.8
+log
+@ok version
+new donerow
+@
+text
+@a5 3
+
+
+
+d53 1
+a53 1
+static int priorityTable[16] = {-1,1,9,2,13,10,6,3,15,14,12,11,8,7,5,4};
+d167 336
+@
+
+
+1.7
+log
+@ok version ...
+@
+text
+@d144 26
+@
+
+
+1.6
+log
+@ok version ... new queue reorder
+@
+text
+@d6 3
+@
+
+
+1.5
+log
+@*** empty log message ***
+@
+text
+@d53 3
+a57 1
+
+d61 1
+d67 34
+d104 1
+a104 1
+		gdsl_queue_insert(freeSinkList,&rootIndex);
+@
+
+
+1.4
+log
+@ok version ~ new lu ~ now data looks good ~ parallelism
+@
+text
+@d39 1
+@
+
+
+1.3
+log
+@change the single thread to lu version ( not chol)
+for comparable result
+@
+text
+@d69 1
+a69 1
+		fprintf(stderr,"rootIndex:%d, left->rowBegin:%d, right->rowBegin:%d\n",rootIndex,tree->node[leftIndex]->rowBegin,tree->node[rightIndex]->rowBegin);
+@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@d77 26
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d69 1
+@

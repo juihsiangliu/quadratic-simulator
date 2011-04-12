@@ -1,0 +1,47 @@
+head	1.1;
+access;
+symbols;
+locks
+	d96041:1.1; strict;
+comment	@ * @;
+
+
+1.1
+date	2010.06.24.08.04.58;	author r97124;	state Exp;
+branches;
+next	;
+
+
+desc
+@.
+.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@// 2010/06/24
+
+#include "fgetl.h"
+
+char *fgetl(char *line,const int num,FILE *fp)
+{
+	char *buf = (char*)calloc(num,sizeof(char));
+	char *status = fgets(buf,num,fp);
+	int i;
+	for(i=num-1;i>-1;i--)
+	{
+		if(buf[i] == '\n')
+		{
+			buf[i] = 0;
+			break;
+		}
+	}
+	strcpy(line,buf);
+	free(buf);
+	return status;
+}
+@

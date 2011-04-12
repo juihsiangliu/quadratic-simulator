@@ -1,0 +1,111 @@
+head	1.3;
+access;
+symbols;
+locks
+	d96041:1.3; strict;
+comment	@ * @;
+
+
+1.3
+date	2010.07.10.09.52.24;	author d96041;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2010.07.10.03.26.41;	author d96041;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2010.07.08.12.43.13;	author d96041;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.3
+log
+@*** empty log message ***
+@
+text
+@#include "mempool.h"
+#include "sparsedoublematrix.h"
+#include "solvesparsedoublematrix.h"
+
+int main(void)
+{
+	createMempoolSet(16,17,2*1024*1024,64);
+		
+	SparseDoubleMatrix *a = createSparseDoubleMatrix(3,3);
+	SparseDoubleMatrix *l = createSparseDoubleMatrix(3,3);
+	SparseDoubleMatrix *u = createSparseDoubleMatrix(3,3);
+
+	setSparseDoubleMatrix(a,3,0,0);
+	setSparseDoubleMatrix(a,2,0,1);
+	setSparseDoubleMatrix(a,2,1,0);
+	setSparseDoubleMatrix(a,4,1,1);
+	setSparseDoubleMatrix(a,1,1,2);
+	setSparseDoubleMatrix(a,1,2,1);
+	setSparseDoubleMatrix(a,5,2,2);
+
+
+	cholSparseDoubleMatrix(l,a);
+	transSparseDoubleMatrix(u,l);
+	mulSparseDoubleMatrix(l,l,u);
+	dumpSparseDoubleMatrix(stdout,l);
+
+	freeMempoolSet();
+	return 0;
+}
+@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@d8 2
+a9 1
+	
+d11 1
+a11 2
+	SparseDoubleMatrix *l_inv = createSparseDoubleMatrix(3,3);
+	identitySparseDoubleMatrix(l);
+d13 7
+a19 3
+	setSparseDoubleMatrix(l,2,1,0);
+	setSparseDoubleMatrix(l,3,2,0);
+	setSparseDoubleMatrix(l,4,2,1);
+a20 1
+	invLTSparseDoubleMatrix(l_inv,l);
+d22 3
+a24 1
+//	plotSparseDoubleMatrix(stdout,l);
+a25 12
+	dumpSparseDoubleMatrix(stdout,l_inv);
+
+	mulSparseDoubleMatrix(l,l,l_inv);
+	dumpSparseDoubleMatrix(stdout,l);
+
+	freeSparseDoubleMatrix(l);
+	freeSparseDoubleMatrix(l_inv);
+
+	int x = 3;
+	const int *const ptr = &x;
+	ptr = NULL;
+	
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d23 2
+d28 6
+@

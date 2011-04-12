@@ -1,0 +1,22 @@
+[todolist]
+
+
+2. fix the null cross nodes bug , can be found in parallel_case
+3. updatate quadlinear to parallel version (bugs in parallel version ...)
+4. [optional] reorder look up table
+5. [optional] nonlinear parallel version
+
+
+=======================================================================================
+[buglist]
+
+[2010/07/03]
+1. partitionMetis - some null cross nodes will cause segementation fault. (2 parts without cross term)
+	(now we just use "partition" in partition_double.c to avoid this bug)
+2. non-balanced elimination tree will ofcourse to cause the segmentation fault.
+
+[2010/07/01]
+1. partitionMetis - some null cross nodes will cause segementation fault. (2 parts without cross term)
+	(now we just use "partition" in partition_double.c to avoid this bug)
+2. parallel_lu_double.c - balanced elimination tree with different size left and right children will cause segmentation fault.
+3. non-balanced elimination tree will ofcourse to cause the segmentation fault.

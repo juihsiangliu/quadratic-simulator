@@ -1,0 +1,1233 @@
+head	1.9;
+access;
+symbols;
+locks
+	d96041:1.9; strict;
+comment	@ * @;
+
+
+1.9
+date	2010.09.17.08.56.55;	author d96041;	state Exp;
+branches;
+next	1.8;
+
+1.8
+date	2010.09.16.12.47.02;	author d96041;	state Exp;
+branches;
+next	1.7;
+
+1.7
+date	2010.09.15.10.48.14;	author d96041;	state Exp;
+branches;
+next	1.6;
+
+1.6
+date	2010.09.14.16.18.13;	author d96041;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	2010.09.13.11.29.25;	author d96041;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	2010.09.12.10.24.45;	author d96041;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	2010.09.12.05.55.02;	author d96041;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2010.09.07.13.04.39;	author d96041;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2010.06.24.08.33.07;	author r97124;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.9
+log
+@ok version
+@
+text
+@#include "quadnonlinear.h"
+
+
+
+static pthread_mutex_t mutexSetJacobian = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t mutexAll = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t mutexG = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t mutexSetGVar = PTHREAD_MUTEX_INITIALIZER;
+
+
+
+inline static int toZeroBase(const int x)
+{
+	return x-1;
+}
+
+
+static int setGVarientForQueue(const gdsl_element_t E, gdsl_location_t LOCATION, void *USER_DATA) 
+{
+	//   =====   initial   =====
+	GVarientIJQuad* currentGVarientIJ = (GVarientIJQuad *) USER_DATA;
+	const int pid = currentGVarientIJ->pid;
+	const GControlInfo *currentGControlInfo = (GControlInfo *) E;
+	const int gateIndex = toZeroBase(currentGControlInfo->gate);
+	const int drainIndex = toZeroBase(currentGControlInfo->drain);
+	const int sourceIndex = toZeroBase(currentGControlInfo->source);
+	QuadElement *vgs = createPidQuadElement(currentGVarientIJ->gvNum,pid);
+	QuadElement *vds = createPidQuadElement(currentGVarientIJ->gvNum,pid);
+	const QuadElement *vDrain = getPtrEntryQuadMatrix(currentGVarientIJ->v,drainIndex,0);
+	const QuadElement *vGate = getPtrEntryQuadMatrix(currentGVarientIJ->v,gateIndex,0);
+	if(sourceIndex !=-1)
+	{
+		const QuadElement *vSource = getPtrEntryQuadMatrix(currentGVarientIJ->v,sourceIndex,0);
+		subQuadElement(vgs,vGate,vSource);
+		subQuadElement(vds,vDrain,vSource);
+	}
+	else
+	{
+		copyQuadElement(vgs,vGate);
+		copyQuadElement(vds,vDrain);
+	}
+
+//	dumpQuadMatrix(currentGVarientIJ->v);
+	//   =====   prepare to curve fitting   =====
+	// x = vgs, y = vds
+	int upXIndex,downXIndex,upYIndex,downYIndex = 0;
+	const double meanVgs = meanPidQuadElement(vgs,currentGVarientIJ->s,pid);
+	const double meanVds = meanPidQuadElement(vds,currentGVarientIJ->s,pid);
+	const double stdVgs = sqrt(varPidQuadElement(vgs,currentGVarientIJ->s,pid));
+	const double stdVds = sqrt(varPidQuadElement(vds,currentGVarientIJ->s,pid));
+	const double fixRatio = 3.0;  // use to fit +- 3 sigma
+	const double deltaXAxis = getMyMatrix(currentGControlInfo->vgsList,1,currentGControlInfo->vgsListSize,0,1) - getMyMatrix(currentGControlInfo->vgsList,1,currentGControlInfo->vgsListSize,0,0);
+	const double deltaYAxis = getMyMatrix(currentGControlInfo->vdsList,1,currentGControlInfo->vdsListSize,0,1) - getMyMatrix(currentGControlInfo->vdsList,1,currentGControlInfo->vdsListSize,0,0);
+
+	// first, use max to find out the minimum required rowIndexUp
+	// second, use min to guarantee the boundary
+	// (the rowIndexDown may up-side-down)
+	// set rowIndex
+	const int rowIndexTemp = GSL_MAX_INT( (int) ((meanVds - getMyMatrix(currentGControlInfo->vdsList,1,currentGControlInfo->vdsListSize,0,0)) / deltaYAxis) , 1);
+	const int rowIndex = GSL_MIN_INT(rowIndexTemp,currentGControlInfo->vdsListSize-3);
+	const int rowIndexUpTemp = GSL_MAX_INT(rowIndex+1,(int)((meanVds+fixRatio*stdVds-getMyMatrix(currentGControlInfo->vdsList,1,currentGControlInfo->vdsListSize,0,0))/deltaYAxis)  );
+	const int rowIndexUp = GSL_MIN_INT(rowIndexUpTemp,currentGControlInfo->vdsListSize-2); // the final entry of partial table may be null (lazy to compute ....)
+	const int rowIndexDownTemp = GSL_MIN_INT(rowIndex-1,(int)((meanVds-fixRatio*stdVds-getMyMatrix(currentGControlInfo->vdsList,1,currentGControlInfo->vdsListSize,0,0))/deltaYAxis)  );
+	const int rowIndexDown = GSL_MAX_INT(rowIndexDownTemp,0);
+	// set colIndex	
+	const int colIndexTemp = GSL_MAX_INT((int) ((meanVgs - getMyMatrix(currentGControlInfo->vgsList,1,currentGControlInfo->vdsListSize,0,0)) / deltaXAxis) , 1);
+	const int colIndex = GSL_MIN_INT(colIndexTemp,currentGControlInfo->vgsListSize-3 );
+	const int colIndexUpTemp = GSL_MAX_INT(colIndex+1,(int)((meanVgs+fixRatio*stdVgs-getMyMatrix(currentGControlInfo->vgsList,1,currentGControlInfo->vgsListSize,0,0))/deltaXAxis)  );
+	const int colIndexUp = GSL_MIN_INT(colIndexUpTemp,currentGControlInfo->vgsListSize-2); // the final entry of partial table may be null (lazy to compute ....)
+	const int colIndexDownTemp = GSL_MIN_INT(colIndex-1,(int)((meanVgs-fixRatio*stdVgs-getMyMatrix(currentGControlInfo->vgsList,1,currentGControlInfo->vgsListSize,0,0))/deltaXAxis)  );
+	const int colIndexDown = GSL_MAX_INT(colIndexDownTemp,0);
+//	fprintf(stderr,"before fit\n");
+//	fprintf(stderr,"rowIndextTemp=%d meanVds=%lf\n",rowIndexTemp,meanVds);
+	
+	//   =====   actual fit   =====
+	double Z[4][3];
+	int i,j;
+	for(i=0;i<4;i++) Z[i][0] = 1;
+	Z[0][1] = getMyMatrix(currentGControlInfo->vdsList,1,currentGControlInfo->vdsListSize,0,rowIndexDown);
+	Z[1][1] = getMyMatrix(currentGControlInfo->vdsList,1,currentGControlInfo->vdsListSize,0,rowIndexUp);
+	Z[2][1] = Z[3][1] = getMyMatrix(currentGControlInfo->vdsList,1,currentGControlInfo->vdsListSize,0,rowIndex);
+	Z[0][2] = Z[1][2] = getMyMatrix(currentGControlInfo->vgsList,1,currentGControlInfo->vgsListSize,0,colIndex);
+	Z[2][2] = getMyMatrix(currentGControlInfo->vgsList,1,currentGControlInfo->vgsListSize,0,colIndexDown);
+	Z[3][2] = getMyMatrix(currentGControlInfo->vgsList,1,currentGControlInfo->vgsListSize,0,colIndexUp);
+	
+//	fprintf(stderr,"after set z\n");
+	QuadMatrix *ZQuad = createPidQuadMatrix(4,3,currentGVarientIJ->gvNum,pid);
+	QuadElement *tempElement = createPidQuadElement(currentGVarientIJ->gvNum,pid);
+	for(i=0;i<4;i++)
+	{
+		for(j=0;j<3;j++)
+		{
+			tempElement->m = Z[i][j];
+			setPidQuadMatrix(ZQuad,tempElement,i,j,pid);
+			//printf("%lf ",Z[i][j]);
+		}
+		//printf("\n");
+	}
+//	fprintf(stderr,"after z\n");
+	
+	freePidQuadElement(tempElement,pid);
+// -------------------------------------------------------
+	
+	QuadMatrix *ZQuadTrans = createPidQuadMatrix(3,4,currentGVarientIJ->gvNum,pid);
+	transposePidQuadMatrix(ZQuadTrans,ZQuad,pid);
+	QuadMatrix *ZTransZQuad = createPidQuadMatrix(3,3,currentGVarientIJ->gvNum,pid);
+	mulPidQuadMatrix(ZTransZQuad,ZQuadTrans,ZQuad,pid);
+	QuadMatrix *yQuad = createPidQuadMatrix(4,1,currentGVarientIJ->gvNum,pid);
+		
+	const QuadElement *yDownIndex = getPtrEntryQuadMatrix(currentGControlInfo->partialIdsVxs,rowIndexDown,colIndex);
+	const QuadElement *yUpIndex = getPtrEntryQuadMatrix(currentGControlInfo->partialIdsVxs,rowIndexUp,colIndex);
+	const QuadElement *yIndexDown = getPtrEntryQuadMatrix(currentGControlInfo->partialIdsVxs,rowIndex,colIndexDown);
+	const QuadElement *yIndexUp = getPtrEntryQuadMatrix(currentGControlInfo->partialIdsVxs,rowIndex,colIndexUp);
+	setPidQuadMatrix(yQuad,yDownIndex,0,0,pid);
+	setPidQuadMatrix(yQuad,yUpIndex,1,0,pid);
+	setPidQuadMatrix(yQuad,yIndexDown,2,0,pid);
+	setPidQuadMatrix(yQuad,yIndexUp,3,0,pid);
+
+	QuadMatrix *ZTransyQuad = createPidQuadMatrix(3,1,currentGVarientIJ->gvNum,pid);
+	mulPidQuadMatrix(ZTransyQuad,ZQuadTrans,yQuad,pid);
+
+//================================================================================================
+//	pthread_mutex_lock(&mutexSetGVar);
+	QuadMatrix *bQuad = createPidQuadMatrix(3,1,currentGVarientIJ->gvNum,pid);
+	solvePidQuadMatrix(bQuad,ZTransZQuad,ZTransyQuad,pid);
+//	pthread_mutex_unlock(&mutexSetGVar);
+//================================================================================================
+	freePidQuadMatrix(ZQuad,pid);
+	freePidQuadMatrix(ZQuadTrans,pid);
+	freePidQuadMatrix(ZTransZQuad,pid);
+	freePidQuadMatrix(yQuad,pid);
+	freePidQuadMatrix(ZTransyQuad,pid);
+// -------------------------------------------------------
+
+
+	//   =====   update gVarientElement according to the fitting result   =====
+	QuadElement *tempQuadElement = createPidQuadElement(currentGVarientIJ->gvNum,pid);
+	QuadElement *tempQuadElement2 = createPidQuadElement(currentGVarientIJ->gvNum,pid);
+	QuadElement *tempQuadElement3 = createPidQuadElement(currentGVarientIJ->gvNum,pid);
+	
+	addQuadElement(tempQuadElement,tempQuadElement,getPtrEntryQuadMatrix(bQuad,0,0));
+	mulPidQuadElement(tempQuadElement2,getPtrEntryQuadMatrix(bQuad,1,0),vds,pid);
+	mulPidQuadElement(tempQuadElement3,getPtrEntryQuadMatrix(bQuad,2,0),vgs,pid);
+	addQuadElement(tempQuadElement,tempQuadElement,tempQuadElement2);
+	addQuadElement(tempQuadElement,tempQuadElement,tempQuadElement3);
+	scaleQuadElement(tempQuadElement,currentGControlInfo->sign,tempQuadElement);
+	addQuadElement(currentGVarientIJ->gVarientElement,currentGVarientIJ->gVarientElement,tempQuadElement);
+
+	freePidQuadElement(tempQuadElement,pid);
+	freePidQuadElement(tempQuadElement2,pid);
+	freePidQuadElement(tempQuadElement3,pid);
+
+	freePidQuadElement(vgs,pid);
+	freePidQuadElement(vds,pid);
+
+	freePidQuadMatrix(bQuad,pid);
+}
+
+
+
+static void updateGVarientMatrixFinite(SparseQuadMatrix *gVarient,const QuadMatrix* v,const SparseNetlistQuad *netlist,const int pid)
+{
+	GVarientIJQuad *currentIJ = getPidMempoolSet(sizeof(GVarientIJQuad),pid);
+	currentIJ->gVarientElement = createPidQuadElement(netlist->gvNum,pid);
+	currentIJ->gvNum = netlist->gvNum;
+	currentIJ->v = v;
+	currentIJ->s = netlist->s;	
+	currentIJ->pid = pid;
+
+//	pthread_mutex_lock(&mutexSetGVar);
+	clearPidSparseQuadMatrix(gVarient,pid);
+
+	int i,j;
+	for(i=0;i<netlist->nodeNum;i++)
+	{
+		for(j=0;j<netlist->nodeNum;j++)
+		{
+//			gdsl_queue_t gControlInfoQueue = getCopyQueueSparseGVarientTable(netlist->gVarientTable,i,j);
+			gdsl_queue_t gControlInfoQueue = getQueueSparseGVarientTable(netlist->gVarientTable,i,j);
+			if(gControlInfoQueue == NULL) continue;
+			else
+			{
+				resetQuadElement(currentIJ->gVarientElement);
+				// use map_forward to calculate
+				gdsl_queue_map_forward(gControlInfoQueue,setGVarientForQueue,currentIJ);
+				setPidSparseQuadMatrix(gVarient,currentIJ->gVarientElement,i,j,pid);
+			}
+//			freeCopyQueueSparseGVarientTable(gControlInfoQueue);
+		}
+	}
+//	pthread_mutex_unlock(&mutexSetGVar);
+
+	freePidQuadElement(currentIJ->gVarientElement,pid);
+	retPidMempoolSet(currentIJ,sizeof(GVarientIJQuad),pid);
+}
+
+
+
+
+static void getJacobianFinite(SparseQuadMatrix *jacobian, const SparseNetlistQuad *netlist, const QuadMatrix *v,const int threadNum)
+{
+		const double DV = 0.006;
+		SparseQuadMatrix *z = createSparseQuadMatrix(netlist->nodeNum,netlist->nodeNum,netlist->gvNum);
+		copySparseQuadMatrix(z,netlist->c);
+		scaleSparseQuadMatrix(z,1.0/netlist->deltaT,z);
+		int i,j;
+		// setup delta V
+		QuadElement *deltaVElement = createQuadElement(netlist->gvNum);
+		setQuadElement(deltaVElement,DV,0,NULL,0);
+		QuadMatrix *deltaV = createQuadMatrix(netlist->nodeNum,1,netlist->gvNum);
+		// calculate by finite difference
+		QuadMatrix *currentV = createQuadMatrix(netlist->nodeNum,1,netlist->gvNum);
+		SparseQuadMatrix *zSubACurrent = createSparseQuadMatrix(netlist->nodeNum,netlist->nodeNum,netlist->gvNum);
+		QuadMatrix *fUp = createQuadMatrix(netlist->nodeNum,1,netlist->gvNum);
+		QuadMatrix *fDown = createQuadMatrix(netlist->nodeNum,1,netlist->gvNum);
+		QuadMatrix *deltaF = createQuadMatrix(netlist->nodeNum,1,netlist->gvNum);
+		QuadMatrix *result = createQuadMatrix(netlist->nodeNum,1,netlist->gvNum);
+		SparseQuadMatrix *aCurrent = createSparseQuadMatrix(netlist->nodeNum,netlist->nodeNum,netlist->gvNum);
+		SparseQuadMatrix *gVarient = createSparseQuadMatrix(netlist->nodeNum,netlist->nodeNum,netlist->gvNum);
+		// clear jacobian
+		clearSparseQuadMatrix(jacobian);
+		// calculate column by column
+		for(j=0;j<netlist->nodeNum;j++)
+		{
+			resetQuadMatrix(deltaV);
+			setQuadMatrix(deltaV,deltaVElement,j,0);
+			
+			addQuadMatrix(currentV,v,deltaV);
+			updateGVarientMatrixFinite(gVarient,currentV,netlist,0);
+			addSparseQuadMatrix(aCurrent,netlist->a,gVarient);
+			subSparseQuadMatrix(zSubACurrent,z,aCurrent);
+			mulVecSparseQuadMatrix(fUp,zSubACurrent,currentV);
+
+			subQuadMatrix(currentV,v,deltaV);
+			updateGVarientMatrixFinite(gVarient,currentV,netlist,0);
+			addSparseQuadMatrix(aCurrent,netlist->a,gVarient);
+			subSparseQuadMatrix(zSubACurrent,z,aCurrent);
+			mulVecSparseQuadMatrix(fDown,zSubACurrent,currentV);
+
+			subQuadMatrix(deltaF,fUp,fDown);
+			scaleQuadMatrix(result,1.0/(2*DV),deltaF);
+			setDenseColQuick2SparseQuadMatrix(jacobian,result,j);
+		}
+		
+		freeSparseQuadMatrix(z);
+		freeQuadElement(deltaVElement);
+		freeQuadMatrix(deltaV);
+		freeQuadMatrix(currentV);
+		freeSparseQuadMatrix(zSubACurrent);
+		freeQuadMatrix(fUp);
+		freeQuadMatrix(fDown);
+		freeQuadMatrix(deltaF);
+		freeQuadMatrix(result);
+		freeSparseQuadMatrix(aCurrent);
+		freeSparseQuadMatrix(gVarient);
+}
+
+
+
+struct ParJacobian
+{	
+	// --------   const data ----------
+	const SparseNetlistQuad *netlist;
+	const QuadMatrix *v;
+	int lowerBound;
+	int upperBound;
+	int pid;
+
+	// ---------  used local variables ----------------
+	// in mempool pid
+	SparseQuadMatrix *jacobian;
+	SparseQuadMatrix *z;
+	QuadElement *deltaVElement;
+	QuadMatrix *deltaV;
+	QuadMatrix *currentV;
+	SparseQuadMatrix *zSubACurrent;
+	QuadMatrix *fUp;
+	QuadMatrix *fDown;
+	QuadMatrix *deltaF;
+	QuadMatrix *result;
+	SparseQuadMatrix *aCurrent;
+	SparseQuadMatrix *gVarient; 
+};
+
+
+
+static struct ParJacobian *createParJacobian(const int nodeNum,const int gvNum,const int pid)
+{
+	struct ParJacobian *ptr = (struct ParJacobian *)malloc(sizeof(struct ParJacobian));
+	ptr->pid = pid;
+
+	ptr->jacobian = createPidSparseQuadMatrix(nodeNum,nodeNum,gvNum,pid);
+	ptr->z = createPidSparseQuadMatrix(nodeNum,nodeNum,gvNum,pid);
+	ptr->deltaVElement = createPidQuadElement(gvNum,pid);
+	ptr->deltaV = createPidQuadMatrix(nodeNum,1,gvNum,pid);
+	ptr->currentV = createPidQuadMatrix(nodeNum,1,gvNum,pid);
+	ptr->zSubACurrent = createPidSparseQuadMatrix(nodeNum,nodeNum,gvNum,pid);
+	ptr->fUp = createPidQuadMatrix(nodeNum,1,gvNum,pid);
+	ptr->fDown = createPidQuadMatrix(nodeNum,1,gvNum,pid);
+	ptr->deltaF = createPidQuadMatrix(nodeNum,1,gvNum,pid);
+	ptr->result = createPidQuadMatrix(nodeNum,1,gvNum,pid);
+	ptr->aCurrent = createPidSparseQuadMatrix(nodeNum,nodeNum,gvNum,pid);
+
+	ptr->gVarient = createPidSparseQuadMatrix(nodeNum,nodeNum,gvNum,pid);
+	
+	return ptr;
+}
+
+
+
+
+
+static void freeParJacobian(struct ParJacobian *ptr,const int pid)
+{
+	freePidSparseQuadMatrix(ptr->jacobian,pid);
+	freePidSparseQuadMatrix(ptr->z,pid);
+	freePidQuadElement(ptr->deltaVElement,pid);
+	freePidQuadMatrix(ptr->deltaV,pid);
+	freePidQuadMatrix(ptr->currentV,pid);
+	freePidSparseQuadMatrix(ptr->zSubACurrent,pid);
+	freePidQuadMatrix(ptr->fUp,pid);
+	freePidQuadMatrix(ptr->fDown,pid);
+	freePidQuadMatrix(ptr->deltaF,pid);
+	freePidQuadMatrix(ptr->result,pid);
+	freePidSparseQuadMatrix(ptr->aCurrent,pid);
+	
+	freePidSparseQuadMatrix(ptr->gVarient,pid);
+
+	free(ptr);
+}
+
+
+static void *getJacobianFiniteParallelKernel(void *par)
+{
+	struct ParJacobian *ptr = (struct ParJacobian *)par;
+	const double DV = 0.006;
+	int i,j;
+	const int pid = ptr->pid;
+
+//	clearSparseQuadMatrix(ptr->jacobian);
+
+	//========================================
+	scalePidSparseQuadMatrix(ptr->z,1.0/ptr->netlist->deltaT,ptr->netlist->c,pid);
+	setQuadElement(ptr->deltaVElement,DV,0,NULL,0);
+	//========================================
+
+	// calculate column by column
+	for(j=ptr->lowerBound;j<=ptr->upperBound;j++)
+	{
+//		fprintf(stderr,"j = %d\n",j);
+		resetQuadMatrix(ptr->deltaV);
+		setPidQuadMatrix(ptr->deltaV,ptr->deltaVElement,j,0,pid);
+		
+		addPidQuadMatrix(ptr->currentV,ptr->v,ptr->deltaV,pid);
+		updateGVarientMatrixFinite(ptr->gVarient,ptr->currentV,ptr->netlist,pid);
+
+		addPidSparseQuadMatrix(ptr->aCurrent,ptr->netlist->a,ptr->gVarient,pid);
+		subPidSparseQuadMatrix(ptr->zSubACurrent,ptr->z,ptr->aCurrent,pid);
+		mulVecPidSparseQuadMatrix(ptr->fUp,ptr->zSubACurrent,ptr->currentV,pid);
+
+		subPidQuadMatrix(ptr->currentV,ptr->v,ptr->deltaV,pid);
+		updateGVarientMatrixFinite(ptr->gVarient,ptr->currentV,ptr->netlist,pid);
+		
+		addPidSparseQuadMatrix(ptr->aCurrent,ptr->netlist->a,ptr->gVarient,pid);
+		subPidSparseQuadMatrix(ptr->zSubACurrent,ptr->z,ptr->aCurrent,pid);
+		mulVecPidSparseQuadMatrix(ptr->fDown,ptr->zSubACurrent,ptr->currentV,pid);
+
+		subPidQuadMatrix(ptr->deltaF,ptr->fUp,ptr->fDown,pid);
+		scalePidQuadMatrix(ptr->result,1.0/(2*DV),ptr->deltaF,pid);
+
+		setDenseColQuick2SparseQuadMatrixPid(ptr->jacobian,ptr->result,j,pid);
+	}
+		
+
+	pthread_exit(NULL);
+}
+
+
+
+
+
+
+static void getJacobianFiniteParallel(SparseQuadMatrix *jacobian, const SparseNetlistQuad *netlist, const QuadMatrix *v,const int threadNum)
+{
+	time_t t1,t2;
+	
+	time(&t1);
+	clearSparseQuadMatrix(jacobian);
+	int i;
+	void *status;
+	pthread_t threads[threadNum];
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+
+	struct ParJacobian ** par = (struct ParJacobian **)malloc(threadNum*sizeof(struct ParJacobian*));
+	for(i=0;i<threadNum;i++)
+	{
+		par[i] = createParJacobian(netlist->nodeNum,netlist->gvNum,i+1);
+		par[i]->netlist = netlist;
+		par[i]->v = v;
+		par[i]->lowerBound = block_low(i,threadNum,netlist->nodeNum);	
+		par[i]->upperBound = block_high(i,threadNum,netlist->nodeNum);
+		par[i]->pid = i+1;
+	}
+	time(&t2);
+//	fprintf(stderr,"jacobian init time:%g\n",difftime(t2,t1));
+
+	time(&t1);
+	for(i=0;i<threadNum;i++)
+	{
+		pthread_create(&threads[i], &attr, getJacobianFiniteParallelKernel,par[i]);
+	}
+
+	pthread_attr_destroy(&attr);
+
+	for(i=0;i<threadNum;i++)
+	{
+		pthread_join(threads[i],NULL);
+	}
+	time(&t2);
+	fprintf(stderr,"jacobian compute time:%g\n",difftime(t2,t1));
+
+
+	time(&t1);
+	for(i=0;i<threadNum;i++)
+	{
+		int j,k;
+		for(j=par[i]->lowerBound;j<=par[i]->upperBound;j++)
+		{
+			const SparseQuadElement *ptr = par[i]->jacobian->colIndex[j]->colLink;
+			while(ptr!=NULL)
+			{
+				const QuadElement *val = ptr->data;
+				int k = ptr->row;
+				setSparseQuadMatrix(jacobian,val,k,j);
+				ptr = ptr->colLink;
+			}
+		}
+	}
+	time(&t2);
+//	fprintf(stderr,"jacobian set time:%g\n",difftime(t2,t1));
+
+	for(i=0;i<threadNum;i++) freeParJacobian(par[i],i+1);
+	free(par);
+
+//	exit(0);
+}
+
+
+
+
+static void solveDCSparseQuad(QuadMatrix *vDC, const SparseQuadMatrix *aCurrent, const QuadMatrix *vCurrent, const int nextUIndex, const SparseNetlistQuad *netlist,const int threadNum)
+{
+	QuadMatrix *uNext = createQuadMatrix(netlist->nodeNum,1,netlist->gvNum);
+	SparseQuadMatrix *z = createSparseQuadMatrix(netlist->nodeNum,netlist->nodeNum,netlist->gvNum);
+	QuadMatrix *zv = createQuadMatrix(netlist->nodeNum,1,netlist->gvNum);
+	QuadMatrix *bu = createQuadMatrix(netlist->nodeNum,1,netlist->gvNum);
+	QuadMatrix *zv_bu = createQuadMatrix(netlist->nodeNum,1,netlist->gvNum);
+	SparseQuadMatrix *z_sub_a = createSparseQuadMatrix(netlist->nodeNum,netlist->nodeNum,netlist->gvNum);
+
+	getColCopyQuadMatrix(uNext,nextUIndex,netlist->u);
+	scaleSparseQuadMatrix(z,1.0/netlist->deltaT,netlist->c);
+	mulVecSparseQuadMatrix(zv,z,vCurrent);
+	mulVecSparseQuadMatrix(bu,netlist->b,uNext);
+	addQuadMatrix(zv_bu,zv,bu);
+	subSparseQuadMatrix(z_sub_a,z,aCurrent);
+	solveSparseQuadMatrix(vDC,z_sub_a,zv_bu,threadNum);
+	
+	freeQuadMatrix(uNext);
+	freeSparseQuadMatrix(z);
+	freeQuadMatrix(zv);
+	freeQuadMatrix(bu);
+	freeQuadMatrix(zv_bu);
+	freeSparseQuadMatrix(z_sub_a);
+}
+
+
+
+// k = C/dt * vt + B *ut+1
+static void getK(QuadMatrix *k, const SparseNetlistQuad *netlist, const QuadMatrix *vCurrent, const int currentIndex)
+{
+	const int nodeNum = netlist->nodeNum;
+	const int gvNum = netlist->gvNum;
+	QuadMatrix *uNext = createQuadMatrix(nodeNum,1,gvNum);
+	SparseQuadMatrix *z = createSparseQuadMatrix(nodeNum,nodeNum,gvNum);
+	QuadMatrix *zv = createQuadMatrix(nodeNum,1,gvNum);
+	QuadMatrix *bu = createQuadMatrix(nodeNum,1,gvNum);
+	
+	getColCopyQuadMatrix(uNext,currentIndex+1,netlist->u);
+	scaleSparseQuadMatrix(z,1.0/netlist->deltaT,netlist->c);
+	mulVecSparseQuadMatrix(zv,z,vCurrent);
+	mulVecSparseQuadMatrix(bu,netlist->b,uNext);
+	addQuadMatrix(k,zv,bu);
+
+	freeQuadMatrix(uNext);
+	freeSparseQuadMatrix(z);
+	freeQuadMatrix(zv);
+	freeQuadMatrix(bu);
+}
+
+
+
+
+//  right = quad_sub_quad(K, quad_x_quad(quad_sub_quad(scalar_x_quad(1/delta_t,C),ACurrent),v_current));     
+static void getRightHandSide(QuadMatrix *right, const QuadMatrix *k, const SparseNetlistQuad *netlist, const SparseQuadMatrix *aCurrent, const QuadMatrix *vCurrent)
+{
+	const int nodeNum = netlist->nodeNum;
+	const int gvNum = netlist->gvNum;
+	SparseQuadMatrix *z = createSparseQuadMatrix(nodeNum,nodeNum,gvNum);
+	SparseQuadMatrix *z_sub_a = createSparseQuadMatrix(nodeNum,nodeNum,gvNum);
+	QuadMatrix *z_sub_a_v = createQuadMatrix(nodeNum,1,gvNum);
+
+	scaleSparseQuadMatrix(z,1.0/netlist->deltaT,netlist->c);
+	subSparseQuadMatrix(z_sub_a,z,aCurrent);
+	mulVecSparseQuadMatrix(z_sub_a_v,z_sub_a,vCurrent);
+	subQuadMatrix(right,k,z_sub_a_v);
+
+	freeSparseQuadMatrix(z);
+	freeSparseQuadMatrix(z_sub_a);
+	freeQuadMatrix(z_sub_a_v);
+}
+
+
+
+
+
+// ======================================================
+
+
+// gsl_matrix *result should be nodeNum * stepNum
+// result should be pre-allocated
+
+void quadNonlinearSimulation(const SparseNetlistQuad *netlist,QuadMatrix *result,const int threadNum,const int dumpNodeIndex)
+{
+	SparseQuadMatrix *gVarient = createSparseQuadMatrix(netlist->nodeNum,netlist->nodeNum,netlist->gvNum);
+	SparseQuadMatrix *aCurrent = createSparseQuadMatrix(netlist->nodeNum,netlist->nodeNum,netlist->gvNum);
+	SparseQuadMatrix *jacobian = createSparseQuadMatrix(netlist->nodeNum,netlist->nodeNum,netlist->gvNum);
+	QuadMatrix *oneStepResult = createQuadMatrix(netlist->nodeNum,1,netlist->gvNum);
+	QuadMatrix *vDC = createQuadMatrix(netlist->nodeNum,1,netlist->gvNum);
+	QuadMatrix *vCurrent = createQuadMatrix(netlist->nodeNum,1,netlist->gvNum);
+	QuadMatrix *k = createQuadMatrix(netlist->nodeNum,1,netlist->gvNum);
+	QuadMatrix *right = createQuadMatrix(netlist->nodeNum,1,netlist->gvNum);
+	QuadMatrix *deltaV = createQuadMatrix(netlist->nodeNum,1,netlist->gvNum);
+	gsl_matrix* meanDeltaV = gsl_matrix_alloc(netlist->nodeNum,1);
+
+	// set the initial conditional
+	setZeroQuadMatrix(result);	
+	// ... wait to put
+
+	int i,j;
+	const int maxIteration = 20;
+	const double magicRatio = 0.1;
+	const double error = 0.01;
+	
+
+	time_t t1,t2;
+	time(&t1);
+
+	// i is the current step
+	for(i=0;i<netlist->stepNum-1;i++)
+	{
+		time_t t1,t2;
+		time(&t1);
+		copyQuadMatrix(oneStepResult,vCurrent);
+		updateGVarientMatrixFinite(gVarient,oneStepResult,netlist,0);
+		addSparseQuadMatrix(aCurrent,netlist->a,gVarient);
+		getK(k,netlist,vCurrent,i);  // k = C/dt * vt + B *ut+1
+		solveDCSparseQuad(vDC,aCurrent,oneStepResult,i+1,netlist,1);
+		copyQuadMatrix(vCurrent,vDC);
+		updateGVarientMatrixFinite(gVarient,vCurrent,netlist,0);
+		addSparseQuadMatrix(aCurrent,netlist->a,gVarient);
+		time(&t2);
+		fprintf(stderr,"update time in for:%g\n",difftime(t2,t1));
+
+
+		time(&t1);
+		for(j=0;j<maxIteration;j++)
+		{
+			time_t t1,t2,t3,t4;
+			time(&t1);
+			if(threadNum > 1)
+				getJacobianFiniteParallel(jacobian,netlist,vCurrent,threadNum);
+			else
+				getJacobianFinite(jacobian,netlist,vCurrent,1);
+			time(&t2);
+			fprintf(stderr,"getJacobian time:%g\n",difftime(t2,t1));
+			
+			time(&t1);
+			getRightHandSide(right,k,netlist,aCurrent,vCurrent);
+			time(&t3);
+			solveSparseQuadMatrix(deltaV,jacobian,right,1);
+			time(&t4);
+			fprintf(stderr,"solve:%g\n",difftime(t4,t3));
+			scaleQuadMatrix(deltaV,magicRatio,deltaV);
+			addQuadMatrix(vCurrent,vCurrent,deltaV);
+
+			meanQuadMatrix(meanDeltaV,deltaV,netlist->s);
+			time(&t2);
+			fprintf(stderr,"time block2:%g\n",difftime(t2,t1));
+			if(gsl_matrix_abs_max(meanDeltaV) < error)
+			{
+				break;
+			}
+			else
+			{
+				updateGVarientMatrixFinite(gVarient,vCurrent,netlist,0);
+				addSparseQuadMatrix(aCurrent,netlist->a,gVarient);
+			}
+
+			if(j==maxIteration)
+			{
+				fprintf(stderr,"can not converge\n");
+				fprintf(stderr,"step: %d, iteration: %d\n",i,j);
+			}
+		}
+		time(&t2);
+		fprintf(stderr,"converge time:%g\n",difftime(t2,t1));
+		setQuadMatrix(result,getPtrEntryQuadMatrix(vCurrent,dumpNodeIndex,0),0,i+1);
+		fprintf(stderr,"step: %d\n",i);
+	}
+//	exit(0);
+	time(&t2);
+	fprintf(stderr,"actual sim time:%g\n",difftime(t2,t1));
+
+	freeSparseQuadMatrix(gVarient);
+	freeSparseQuadMatrix(aCurrent);
+	freeSparseQuadMatrix(jacobian);
+	freeQuadMatrix(oneStepResult);
+	freeQuadMatrix(vDC);
+	freeQuadMatrix(vCurrent);
+	freeQuadMatrix(k);
+	freeQuadMatrix(right);
+	freeQuadMatrix(deltaV);
+	gsl_matrix_free(meanDeltaV);
+}
+
+
+@
+
+
+1.8
+log
+@ok version
+@
+text
+@d21 1
+a21 1
+	GVarientIJ* currentGVarientIJ = (GVarientIJ *) USER_DATA;
+d163 1
+a163 1
+	GVarientIJ *currentIJ = getPidMempoolSet(sizeof(GVarientIJ),pid);
+d194 1
+a194 1
+	retPidMempoolSet(currentIJ,sizeof(GVarientIJ),pid);
+d309 4
+@
+
+
+1.7
+log
+@ok version ~ new pid functions
+@
+text
+@d178 2
+a179 2
+//			const gdsl_queue_t gControlInfoQueue = getQueueSparseGVarientTable(netlist->gVarientTable,i,j);
+			gdsl_queue_t gControlInfoQueue = getCopyQueueSparseGVarientTable(netlist->gVarientTable,i,j);
+d188 1
+a188 1
+			freeCopyQueueSparseGVarientTable(gControlInfoQueue);
+a330 2
+	
+//	pthread_mutex_lock(&mutexAll);
+a337 1
+//	pthread_mutex_lock(&mutexAll);
+a339 1
+//	pthread_mutex_lock(&mutexAll);
+a343 2
+//	pthread_mutex_lock(&mutexAll);
+//	pthread_mutex_lock(&mutexSetJacobian);
+a345 1
+//		pthread_mutex_lock(&mutexSetJacobian);
+a350 2
+		
+//		pthread_mutex_lock(&mutexG);
+a351 1
+//		pthread_mutex_unlock(&mutexG);
+a357 2
+		
+//		pthread_mutex_lock(&mutexG);
+a358 1
+//		pthread_mutex_unlock(&mutexG);
+a368 3
+//	pthread_mutex_unlock(&mutexSetJacobian);
+//	pthread_mutex_unlock(&mutexAlloc);
+//	pthread_mutex_unlock(&mutexAll);
+a369 7
+	//========================================
+//	pthread_mutex_lock(&mutexFree);
+//	pthread_mutex_unlock(&mutexFree);
+	//========================================
+
+//	pthread_mutex_unlock(&mutexAll);
+	
+d374 5
+d381 3
+a383 1
+
+a400 1
+//		fprintf(stderr,"low: %d , high: %d\n",par[i]->lowerBound,par[i]->upperBound);
+d402 2
+d405 1
+a412 1
+
+d417 3
+d421 1
+a426 7
+			/*
+			for(k=0;k<netlist->nodeNum;k++)
+			{
+				const QuadElement *val = getSparseQuadMatrix(par[i]->jacobian,k,j);
+				if(val !=NULL) setSparseQuadMatrix(jacobian,val,k,j);
+			}
+			*/
+d437 2
+@
+
+
+1.6
+log
+@very ok version ~ new pid functions , done linear and non-linear
+@
+text
+@d438 1
+d444 9
+a547 2
+	SparseQuadMatrix *p = createSparseQuadMatrix(netlist->nodeNum,netlist->nodeNum,netlist->gvNum);
+	SparseQuadMatrix *pTrans = createSparseQuadMatrix(netlist->nodeNum,netlist->nodeNum,netlist->gvNum);
+a567 3
+	getJacobianFinite(jacobian,netlist,result,1);
+	amdSparseQuadMatrix(p,jacobian);
+	transSparseQuadMatrix(pTrans,p);
+d575 2
+a576 1
+//		time_t t1,t2;
+d581 1
+a581 1
+		solveDCSparseQuad(vDC,aCurrent,oneStepResult,i+1,netlist,threadNum);
+d585 5
+a589 2
+		
+//		time(&t1);
+d592 2
+a593 2
+//			time_t t1,t2;
+//			time(&t1);
+d598 2
+a599 2
+//			time(&t2);
+//			fprintf(stderr,"getJacobian time:%g\n",difftime(t2,t1));
+d601 1
+d603 4
+a606 4
+//			time(&t1);
+			solveWithPermutationSparseQuadMatrix(deltaV,p,pTrans,jacobian,right,1,NULL);
+//			time(&t2);
+//			fprintf(stderr,"solve time:%g\n",difftime(t2,t1));
+d611 2
+a627 1
+//			fprintf(stderr,"j = %d\n",j);
+d629 2
+a630 2
+//		time(&t2);
+//		fprintf(stderr,"converge time:%g\n",difftime(t2,t1));
+a640 2
+	freeSparseQuadMatrix(p);
+	freeSparseQuadMatrix(pTrans);
+@
+
+
+1.5
+log
+@ok version ~ new pid funcs...
+@
+text
+@d22 1
+d27 2
+a28 2
+	QuadElement *vgs = createQuadElement(currentGVarientIJ->gvNum);
+	QuadElement *vds = createQuadElement(currentGVarientIJ->gvNum);
+d42 1
+d47 4
+a50 4
+	const double meanVgs = meanQuadElement(vgs,currentGVarientIJ->s);
+	const double meanVds = meanQuadElement(vds,currentGVarientIJ->s);
+	const double stdVgs = sqrt(varQuadElement(vgs,currentGVarientIJ->s));
+	const double stdVds = sqrt(varQuadElement(vds,currentGVarientIJ->s));
+a54 6
+//	fprintf(stderr,"entry=%g\n",getMyMatrix(currentGControlInfo->vdsList,1,currentGControlInfo->vdsListSize,0,0));
+//	fprintf(stderr,"deltaYAXIS=%g\n",deltaYAxis);
+//	dumpGControlInfo(stderr,currentGControlInfo);
+//	exit(0);
+//	gsl_matrix_fprintf(stdout,currentGControlInfo->vgsList,"%g");
+	
+d74 1
+d85 1
+d87 2
+a88 2
+	QuadMatrix *ZQuad = createQuadMatrix(4,3,currentGVarientIJ->gvNum);
+	QuadElement *tempElement = createQuadElement(currentGVarientIJ->gvNum);
+d94 1
+a94 1
+			setQuadMatrix(ZQuad,tempElement,i,j);
+d101 8
+a108 6
+	freeQuadElement(tempElement);
+	QuadMatrix *ZQuadTrans = createQuadMatrix(3,4,currentGVarientIJ->gvNum);
+	transposeQuadMatrix(ZQuadTrans,ZQuad);
+	QuadMatrix *ZTransZQuad = createQuadMatrix(3,3,currentGVarientIJ->gvNum);
+	mulQuadMatrix(ZTransZQuad,ZQuadTrans,ZQuad);
+	QuadMatrix *yQuad = createQuadMatrix(4,1,currentGVarientIJ->gvNum);
+d114 22
+a135 10
+	setQuadMatrix(yQuad,yDownIndex,0,0);
+	setQuadMatrix(yQuad,yUpIndex,1,0);
+	setQuadMatrix(yQuad,yIndexDown,2,0);
+	setQuadMatrix(yQuad,yIndexUp,3,0);
+
+	QuadMatrix *bQuad = createQuadMatrix(3,1,currentGVarientIJ->gvNum);
+	QuadMatrix *ZTransyQuad = createQuadMatrix(3,1,currentGVarientIJ->gvNum);
+	mulQuadMatrix(ZTransyQuad,ZQuadTrans,yQuad);
+	solveQuadMatrix(bQuad,ZTransZQuad,ZTransyQuad);
+//	fprintf(stderr,"after fit\n");
+d137 3
+a139 3
+	QuadElement *tempQuadElement = createQuadElement(currentGVarientIJ->gvNum);
+	QuadElement *tempQuadElement2 = createQuadElement(currentGVarientIJ->gvNum);
+	QuadElement *tempQuadElement3 = createQuadElement(currentGVarientIJ->gvNum);
+d142 2
+a143 2
+	mulQuadElement(tempQuadElement2,getPtrEntryQuadMatrix(bQuad,1,0),vds);
+	mulQuadElement(tempQuadElement3,getPtrEntryQuadMatrix(bQuad,2,0),vgs);
+d149 6
+a154 3
+	freeQuadElement(tempQuadElement);
+	freeQuadElement(tempQuadElement2);
+	freeQuadElement(tempQuadElement3);
+d156 1
+a156 8
+	freeQuadMatrix(ZQuad);
+	freeQuadMatrix(ZQuadTrans);
+	freeQuadMatrix(ZTransZQuad);
+	freeQuadMatrix(yQuad);
+	freeQuadMatrix(bQuad);
+	freeQuadMatrix(ZTransyQuad);
+	freeQuadElement(vgs);
+	freeQuadElement(vds);
+d161 1
+a161 1
+static void updateGVarientMatrixFinite(SparseQuadMatrix *gVarient,const QuadMatrix* v,const SparseNetlistQuad *netlist)
+d163 2
+a164 2
+	GVarientIJ *currentIJ = getMempoolSet(sizeof(GVarientIJ));
+	currentIJ->gVarientElement = createQuadElement(netlist->gvNum);
+d168 4
+a171 3
+	
+	pthread_mutex_lock(&mutexSetGVar);
+	clearSparseQuadMatrix(gVarient);
+d186 1
+a186 1
+				setSparseQuadMatrix(gVarient,currentIJ->gVarientElement,i,j);
+d191 1
+a191 1
+	pthread_mutex_unlock(&mutexSetGVar);
+d193 2
+a194 2
+	freeQuadElement(currentIJ->gVarientElement);
+	retMempoolSet(currentIJ,sizeof(GVarientIJ));
+d229 1
+a229 1
+			updateGVarientMatrixFinite(gVarient,currentV,netlist);
+d235 1
+a235 1
+			updateGVarientMatrixFinite(gVarient,currentV,netlist);
+d270 1
+d290 1
+d304 1
+a304 1
+	ptr->gVarient = createSparseQuadMatrix(nodeNum,nodeNum,gvNum);
+d323 1
+a323 1
+	freeSparseQuadMatrix(ptr->gVarient);
+d360 1
+a360 1
+		updateGVarientMatrixFinite(ptr->gVarient,ptr->currentV,ptr->netlist);
+d370 1
+a370 1
+		updateGVarientMatrixFinite(ptr->gVarient,ptr->currentV,ptr->netlist);
+d411 1
+a411 1
+		par[i] = createParJacobian(netlist->nodeNum,netlist->gvNum,i);;
+d416 1
+a416 1
+		par[i]->pid = i;
+d446 1
+a446 1
+	for(i=0;i<threadNum;i++) freeParJacobian(par[i],i);
+d564 2
+d572 1
+a572 1
+		updateGVarientMatrixFinite(gVarient,oneStepResult,netlist);
+d577 1
+a577 1
+		updateGVarientMatrixFinite(gVarient,vCurrent,netlist);
+d607 1
+a607 1
+				updateGVarientMatrixFinite(gVarient,vCurrent,netlist);
+d624 2
+@
+
+
+1.4
+log
+@ok version ~ new pid func..
+@
+text
+@d4 8
+a128 12
+	
+/*	
+	addQuadElement(currentGVarientIJ->gVarientElement,currentGVarientIJ->gVarientElement,getPtrEntryQuadMatrix(bQuad,0,0));
+	mulQuadElement(tempQuadElement,getPtrEntryQuadMatrix(bQuad,1,0),vds);
+	addQuadElement(currentGVarientIJ->gVarientElement,currentGVarientIJ->gVarientElement,tempQuadElement);
+	mulQuadElement(tempQuadElement,getPtrEntryQuadMatrix(bQuad,2,0),vgs);
+	addQuadElement(currentGVarientIJ->gVarientElement,currentGVarientIJ->gVarientElement,tempQuadElement);
+	freeQuadElement(tempQuadElement);
+	
+	scaleQuadElement(currentGVarientIJ->gVarientElement,currentGControlInfo->sign,currentGVarientIJ->gVarientElement);
+*/
+	
+d160 2
+a161 1
+
+d169 2
+a170 1
+			const gdsl_queue_t gControlInfoQueue = getQueueSparseGVarientTable(netlist->gVarientTable,i,j);
+d179 1
+d182 2
+d252 2
+a253 1
+{
+a275 5
+static pthread_mutex_t mutexSetJacobian = PTHREAD_MUTEX_INITIALIZER ;
+static pthread_mutex_t mutexAlloc = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t mutexFree = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t mutexAll = PTHREAD_MUTEX_INITIALIZER;
+
+d277 1
+a277 1
+struct ParJacobian *createParJacobian(const int nodeNum,const int gvNum)
+d281 12
+a292 11
+	ptr->jacobian = createSparseQuadMatrix(nodeNum,nodeNum,gvNum);
+	ptr->z = createSparseQuadMatrix(nodeNum,nodeNum,gvNum);
+	ptr->deltaVElement = createQuadElement(gvNum);
+	ptr->deltaV = createQuadMatrix(nodeNum,1,gvNum);
+	ptr->currentV = createQuadMatrix(nodeNum,1,gvNum);
+	ptr->zSubACurrent = createSparseQuadMatrix(nodeNum,nodeNum,gvNum);
+	ptr->fUp = createQuadMatrix(nodeNum,1,gvNum);
+	ptr->fDown = createQuadMatrix(nodeNum,1,gvNum);
+	ptr->deltaF = createQuadMatrix(nodeNum,1,gvNum);
+	ptr->result = createQuadMatrix(nodeNum,1,gvNum);
+	ptr->aCurrent = createSparseQuadMatrix(nodeNum,nodeNum,gvNum);
+d298 1
+a298 1
+void freeParJacobian(struct ParJacobian *ptr)
+d300 12
+a311 11
+	freeSparseQuadMatrix(ptr->jacobian);
+	freeSparseQuadMatrix(ptr->z);
+	freeQuadElement(ptr->deltaVElement);
+	freeQuadMatrix(ptr->deltaV);
+	freeQuadMatrix(ptr->currentV);
+	freeSparseQuadMatrix(ptr->zSubACurrent);
+	freeQuadMatrix(ptr->fUp);
+	freeQuadMatrix(ptr->fDown);
+	freeQuadMatrix(ptr->deltaF);
+	freeQuadMatrix(ptr->result);
+	freeSparseQuadMatrix(ptr->aCurrent);
+d325 1
+d331 1
+a331 1
+	scaleSparseQuadMatrix(ptr->z,1.0/ptr->netlist->deltaT,ptr->netlist->c);
+d344 1
+a344 1
+		setQuadMatrix(ptr->deltaV,ptr->deltaVElement,j,0);
+d346 1
+a346 1
+		addQuadMatrix(ptr->currentV,ptr->v,ptr->deltaV);
+d348 1
+a348 1
+		pthread_mutex_lock(&mutexAll);
+d350 1
+a350 1
+		pthread_mutex_unlock(&mutexAll);
+d352 3
+a354 3
+		addSparseQuadMatrix(ptr->aCurrent,ptr->netlist->a,ptr->gVarient);
+		subSparseQuadMatrix(ptr->zSubACurrent,ptr->z,ptr->aCurrent);
+		mulVecSparseQuadMatrix(ptr->fUp,ptr->zSubACurrent,ptr->currentV);
+d356 1
+a356 1
+		subQuadMatrix(ptr->currentV,ptr->v,ptr->deltaV);
+d358 1
+a358 1
+		pthread_mutex_lock(&mutexAll);
+d360 1
+a360 1
+		pthread_mutex_unlock(&mutexAll);
+d362 3
+a364 3
+		addSparseQuadMatrix(ptr->aCurrent,ptr->netlist->a,ptr->gVarient);
+		subSparseQuadMatrix(ptr->zSubACurrent,ptr->z,ptr->aCurrent);
+		mulVecSparseQuadMatrix(ptr->fDown,ptr->zSubACurrent,ptr->currentV);
+d366 2
+a367 2
+		subQuadMatrix(ptr->deltaF,ptr->fUp,ptr->fDown);
+		scaleQuadMatrix(ptr->result,1.0/(2*DV),ptr->deltaF);
+d369 1
+a369 1
+		setDenseColQuick2SparseQuadMatrix(ptr->jacobian,ptr->result,j);
+d400 1
+a400 1
+		par[i] = createParJacobian(netlist->nodeNum,netlist->gvNum);;
+d435 1
+a435 1
+	for(i=0;i<threadNum;i++) freeParJacobian(par[i]);
+@
+
+
+1.3
+log
+@ok version ~ new pid functions
+@
+text
+@d218 1
+a218 1
+			addQuadMatrix(currentV,v,deltaV,threadNum);
+d346 1
+a346 1
+		addQuadMatrix(ptr->currentV,ptr->v,ptr->deltaV,1);
+d457 1
+a457 1
+	addQuadMatrix(zv_bu,zv,bu,1);
+d485 1
+a485 1
+	addQuadMatrix(k,zv,bu,1);
+d585 1
+a585 1
+			addQuadMatrix(vCurrent,vCurrent,deltaV,1);
+@
+
+
+1.2
+log
+@ok only in 1 thread version ~
+@
+text
+@d164 3
+d256 1
+a256 2
+	// ---------  used global variables ---------------
+	SparseQuadMatrix *jacobian;
+d259 1
+d270 1
+a270 1
+	SparseQuadMatrix *gVarient;
+d274 4
+a277 4
+static pthread_mutex_t mutexSetJacobian;
+static pthread_mutex_t mutexAlloc;
+static pthread_mutex_t mutexFree;
+static pthread_mutex_t mutexAll;
+a284 1
+
+a302 3
+
+//	dumpSparseQuadMatrix(stderr,ptr->z);
+
+a388 5
+	pthread_mutex_init(&mutexSetJacobian,NULL);
+	pthread_mutex_init(&mutexAlloc,NULL);
+	pthread_mutex_init(&mutexFree,NULL);
+	pthread_mutex_init(&mutexAll,NULL);
+
+d405 1
+a426 1
+//			const SparseQuadElement = par[i]->
+a434 6
+
+	pthread_mutex_destroy(&mutexSetJacobian);	
+	pthread_mutex_destroy(&mutexAlloc);	
+	pthread_mutex_destroy(&mutexFree);	
+	pthread_mutex_destroy(&mutexAll);	
+
+d548 3
+a550 4
+/*
+	getColCopyQuadMatrix(oneStepResult,0,result);
+	getJacobianFinite(jacobian,netlist,oneStepResult,threadNum);
+	amdSparseQuadMatrix(p,aCurrent);
+a551 2
+*/
+	getJacobianFinite(jacobian,netlist,result,threadNum);
+a552 14
+	ParallelETree *tree = NULL;
+	if(threadNum==1)
+	{
+		amdSparseQuadMatrix(p,jacobian);
+		transSparseQuadMatrix(pTrans,p);
+	}
+	else
+	{
+		const int goalPartition = 4;
+		SparseQuadMatrix *jacobianRefine = createSparseQuadMatrix(netlist->nodeNum,netlist->nodeNum,netlist->gvNum);
+		tree = createParallelETree(goalPartition*2 + goalPartition+1);
+		partitionSparseQuadMatrix(p,pTrans,tree,jacobianRefine,jacobian,goalPartition);
+		freeSparseQuadMatrix(jacobianRefine);
+	}
+d557 1
+d567 1
+a567 1
+
+d570 8
+a577 2
+//			getJacobianFiniteParallel(jacobian,netlist,vCurrent,threadNum);
+			getJacobianFinite(jacobian,netlist,vCurrent,threadNum);
+d580 1
+d582 2
+d605 2
+a606 1
+//		setColQuadMatrix(result,vCurrent,i+1);
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d456 1
+a456 1
+static void solveDCSparseQuad(QuadMatrix *vDC, const SparseQuadMatrix *aCurrent, const QuadMatrix *vCurrent, const int nextUIndex, const SparseNetlistQuad *netlist)
+d471 1
+a471 1
+	solveSparseQuadMatrix(vDC,z_sub_a,zv_bu,1);
+d567 15
+a581 2
+	amdSparseQuadMatrix(p,jacobian);
+	transSparseQuadMatrix(pTrans,p);
+d590 1
+a590 1
+		solveDCSparseQuad(vDC,aCurrent,oneStepResult,i+1,netlist);
+d602 1
+a602 2
+//			solveSparseQuadMatrix(deltaV,jacobian,right,threadNum);
+			solveWithPermutationSparseQuadMatrix(deltaV,p,pTrans,jacobian,right,1);
+@

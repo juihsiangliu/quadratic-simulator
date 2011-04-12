@@ -1,0 +1,489 @@
+head	1.11;
+access;
+symbols;
+locks
+	d96041:1.11; strict;
+comment	@ * @;
+
+
+1.11
+date	2010.11.14.12.48.53;	author d96041;	state Exp;
+branches;
+next	1.10;
+
+1.10
+date	2010.09.17.08.56.55;	author d96041;	state Exp;
+branches;
+next	1.9;
+
+1.9
+date	2010.07.17.09.04.42;	author d96041;	state Exp;
+branches;
+next	1.8;
+
+1.8
+date	2010.07.10.14.15.21;	author d96041;	state Exp;
+branches;
+next	1.7;
+
+1.7
+date	2010.07.10.09.52.24;	author d96041;	state Exp;
+branches;
+next	1.6;
+
+1.6
+date	2010.07.03.08.56.40;	author d96041;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	2010.06.30.09.48.16;	author d96041;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	2010.06.29.13.35.35;	author d96041;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	2010.06.25.09.42.26;	author r97124;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2010.06.24.09.04.09;	author r97124;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2010.06.24.08.33.07;	author r97124;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.11
+log
+@ok version
+@
+text
+@#include "montelinear.h"
+
+
+
+void monteLinearSimulation(const MonteNetlist *netlist, double *result,const int threadNum,const int dumpNodeIndex)
+{
+	// init & alloc
+	const int nodeNum = netlist->nodeNum;
+	const int stepNum = netlist->stepNum;
+	int i;
+	// -----
+	SparseDoubleMatrix *y = createSparseDoubleMatrix(nodeNum,nodeNum);	
+	SparseDoubleMatrix *yRefine = createSparseDoubleMatrix(nodeNum,nodeNum);	
+	SparseDoubleMatrix *z = createSparseDoubleMatrix(nodeNum,nodeNum);	
+	// used for lu
+	SparseDoubleMatrix *p = createSparseDoubleMatrix(nodeNum,nodeNum);
+	identitySparseDoubleMatrix(p);
+	SparseDoubleMatrix *pTrans = createSparseDoubleMatrix(nodeNum,nodeNum);	
+	identitySparseDoubleMatrix(pTrans);
+	SparseDoubleMatrix *l = createSparseDoubleMatrix(nodeNum,nodeNum);	
+	SparseDoubleMatrix *u = createSparseDoubleMatrix(nodeNum,nodeNum);	
+	// -----
+	double *uCurrent = getMempoolSet(sizeof(double)*nodeNum);
+	double *vCurrent = getMempoolSet(sizeof(double)*nodeNum);
+	double *zv = getMempoolSet(sizeof(double)*nodeNum);
+	double *bu = getMempoolSet(sizeof(double)*nodeNum);
+	double *zvbu = getMempoolSet(sizeof(double)*nodeNum);
+	double *vDC = getMempoolSet(sizeof(double)*nodeNum);
+
+	// y = c/dt - a and chol(y)
+	scaleSparseDoubleMatrix(z,1.0/netlist->deltaT,netlist->c); // z = c/dt
+	subSparseDoubleMatrix(y,z,netlist->a); // y = z - a
+
+
+
+	time_t reorderBegin,reorderEnd,luBegin,luEnd;	
+	if(threadNum != 0)
+	{
+		const int goalPartition = 8;
+		ParallelETree *tree2 = createParallelETree(goalPartition*2 + goalPartition+1);
+		time(&reorderBegin);
+		partitionSparseDoubleMatrix(p,pTrans,tree2,yRefine,y,goalPartition);
+		time(&reorderEnd);
+		fprintf(stderr,"reordering time: %g\n",difftime(reorderEnd,reorderBegin));
+		time(&luBegin);
+		parallelLUDouble(l,u,tree2,yRefine,threadNum);	
+		time(&luEnd);
+		fprintf(stderr,"lu time:%g\n",difftime(luEnd,luBegin));
+		freeParallelETree(tree2);
+		fprintf(stderr,"row: %d, nnz: %d, L->nnz: %d, U->nnz: %d\n",yRefine->totalRow,yRefine->nnz,l->nnz,u->nnz);
+	}
+	else
+	{
+		// directly partition
+		time(&reorderBegin);
+		amdSparseDoubleMatrix(p,y);
+		transSparseDoubleMatrix(pTrans,p);
+		permutateSparseDoubleMatrix(yRefine,p,pTrans,y);	
+		time(&reorderEnd);
+		fprintf(stderr,"reordering time: %g\n",difftime(reorderEnd,reorderBegin));
+		time(&luBegin);
+	   	luSparseDoubleMatrix(l,u,yRefine);
+		time(&luEnd);
+		fprintf(stderr,"lu time:%g\n",difftime(luEnd,luBegin));
+		fprintf(stderr,"row: %d, nnz: %d, L->nnz: %d, U->nnz: %d\n",yRefine->totalRow,yRefine->nnz,l->nnz,u->nnz);
+	}
+
+
+	memset(vDC,0,sizeof(double)*netlist->nodeNum);
+
+	for(i=0;i<netlist->stepNum-1;i++)
+	{
+		// z*vt
+		mulVecSparseDoubleMatrix(zv,z,vDC);
+		// b*ut
+		const double *uCurrent = netlist->u[i];
+		mulVecSparseDoubleMatrix(bu,netlist->b,uCurrent);
+		// zv + bu
+		addMyMatrix(zvbu,zv,bu,nodeNum,1);
+		triSolveSparseDoubleMatrix(vDC,p,pTrans,l,u,zvbu);
+
+		result[i+1] = getMyMatrix(vDC,nodeNum,1,dumpNodeIndex,0);
+	}
+
+	freeSparseDoubleMatrix(y);
+	freeSparseDoubleMatrix(yRefine);
+	freeSparseDoubleMatrix(z);
+	freeSparseDoubleMatrix(p);
+	freeSparseDoubleMatrix(pTrans);
+	freeSparseDoubleMatrix(l);
+	freeSparseDoubleMatrix(u);
+
+	retMempoolSet(uCurrent,sizeof(double)*nodeNum);
+	retMempoolSet(vCurrent,sizeof(double)*nodeNum);
+	retMempoolSet(zv,sizeof(double)*nodeNum);
+	retMempoolSet(bu,sizeof(double)*nodeNum);
+	retMempoolSet(zvbu,sizeof(double)*nodeNum);
+	retMempoolSet(vDC,sizeof(double)*nodeNum);
+}	
+
+
+
+/*
+void monteLinearSimulation(const MonteNetlist *netlist,gsl_matrix *result,const int threadNum)
+{
+	// init & alloc
+	const int nodeNum = netlist->nodeNum;
+	const int gvNum = netlist->gvNum;
+	const int stepNum = netlist->stepNum;
+	int i;
+	gsl_matrix *y = gsl_matrix_alloc(nodeNum,nodeNum);
+	gsl_matrix *z = gsl_matrix_alloc(nodeNum,nodeNum);
+	// -----
+	gsl_vector *uCurrent = gsl_vector_alloc(nodeNum);
+	gsl_vector *vCurrent = gsl_vector_alloc(nodeNum);
+	gsl_vector *zv = gsl_vector_alloc(nodeNum);
+	gsl_vector *bu = gsl_vector_alloc(nodeNum);
+	gsl_vector *zvbu = gsl_vector_alloc(nodeNum);
+	gsl_vector *vDC = gsl_vector_alloc(nodeNum);
+
+	// y = c/dt - a and chol(y)
+	gsl_matrix_memcpy(z,netlist->c);
+	gsl_matrix_scale(z,1.0/netlist->deltaT);
+	gsl_matrix_memcpy(y,z);
+	gsl_matrix_sub(y,netlist->a);
+	gsl_linalg_cholesky_decomp(y);
+
+	// set the initial of v to result
+	for(i=0;i<nodeNum;i++) gsl_matrix_set(result,i,0,0);
+
+	// predict the nodal voltage of i+1 step
+	for(i=0;i<stepNum-1;i++)
+	{
+		gsl_matrix_get_col(uCurrent,netlist->u,i);	
+		gsl_matrix_get_col(vCurrent,result,i);	
+		// z * vt
+		gsl_blas_dgemv(CblasNoTrans,1.0,z,vCurrent,0.0,zv);
+		// b * ut
+		gsl_blas_dgemv(CblasNoTrans,1.0,netlist->b,uCurrent,0.0,bu);
+		// z*vt + b*ut
+		gsl_vector_set_zero(zvbu);
+		gsl_vector_add(zvbu,zv);
+		gsl_vector_add(zvbu,bu);
+		gsl_linalg_cholesky_solve(y,zvbu,vDC);
+		// set result
+		gsl_matrix_set_col(result,i+1,vDC);
+	}
+
+	// free
+	gsl_matrix_free(y);
+	gsl_matrix_free(z);
+	gsl_vector_free(uCurrent);
+	gsl_vector_free(vCurrent);
+	gsl_vector_free(zv);
+	gsl_vector_free(bu);
+	gsl_vector_free(zvbu);
+	gsl_vector_free(vDC);
+}
+*/
+
+@
+
+
+1.10
+log
+@ok version
+@
+text
+@d37 1
+a37 1
+	if(threadNum > 1)
+d39 1
+a39 1
+		const int goalPartition = threadNum;
+d46 1
+a46 1
+		parallelLUDouble(l,u,tree2,yRefine,goalPartition);	
+d50 1
+a50 4
+/*
+		plotSparseDoubleMatrix(stdout,l);
+		exit(0);
+*/
+a53 1
+
+d62 1
+a62 1
+	   	luSparseDoubleMatrix(l,u,yRefine,1);
+d65 1
+a65 1
+		
+@
+
+
+1.9
+log
+@change the single thread to lu version ( not chol)
+for comparable result
+@
+text
+@a66 11
+		// chol block
+/*		fprintf(stderr,"perform chol\n");
+	    cholSparseDoubleMatrix(l,yRefine);
+		fprintf(stderr,"end chol\n");
+		transSparseDoubleMatrix(u,l);
+*/
+/*		dumpSparseDoubleMatrix(stdout,yRefine);
+		mulSparseDoubleMatrix(yRefine,l,u);
+		dumpSparseDoubleMatrix(stdout,yRefine);
+*/
+		// end of chol
+a69 22
+/*
+		const int goalPartition = 2;
+		ParallelETree *tree2 = createParallelETree(goalPartition*2 + goalPartition+1);
+		time(&reorderBegin);
+		partitionSparseDoubleMatrix(p,pTrans,tree2,yRefine,y,goalPartition);
+		time(&reorderEnd);
+		fprintf(stderr,"reordering time: %g\n",difftime(reorderEnd,reorderBegin));
+		time(&luBegin);
+	    luSparseDoubleMatrix(l,u,yRefine,1);
+		time(&luEnd);
+		fprintf(stderr,"lu time:%g\n",difftime(luEnd,luBegin));
+		freeParallelETree(tree2);
+*/
+	}
+
+/*
+ * 	dump out the lu information
+ */
+/*
+	for(i=0;i<p->totalRow;i++)
+	{
+		fprintf(stderr,"%d ",p->rowIndex[i]->rowLink->col);
+a70 7
+	fprintf(stderr,"\n");
+	fprintf(stderr,"nnz in L: %d, nnz in U: %d\n",l->nnz,u->nnz);
+	plotSparseDoubleMatrix(stderr,l);
+	plotSparseDoubleMatrix(stderr,u);
+	plotSparseDoubleMatrix(stderr,yRefine);
+*/
+
+a74 1
+
+@
+
+
+1.8
+log
+@use cholesky  for serial, lu for parallel
+@
+text
+@d66 1
+a66 1
+//	   	luSparseDoubleMatrix(l,u,yRefine,1);
+d68 1
+a68 1
+		fprintf(stderr,"perform chol\n");
+d72 1
+@
+
+
+1.7
+log
+@change to cholesky, but the cholesky has some bug
+@
+text
+@d70 1
+@
+
+
+1.6
+log
+@*** empty log message ***
+@
+text
+@d66 10
+a75 1
+	    luSparseDoubleMatrix(l,u,yRefine,1);
+@
+
+
+1.5
+log
+@*** empty log message ***
+@
+text
+@d50 4
+@
+
+
+1.4
+log
+@*** empty log message ***
+@
+text
+@d34 2
+a35 4
+/*
+	partitionSparseDoubleMatrixNew(NULL,NULL,NULL,yRefine,y,8);
+	exit(0);
+*/
+d84 1
+a84 1
+
+d91 2
+a92 2
+//	plotSparseDoubleMatrix(stderr,l);
+//	plotSparseDoubleMatrix(stderr,u);
+d94 1
+a94 1
+
+@
+
+
+1.3
+log
+@*** empty log message ***
+@
+text
+@a32 1
+	
+d34 4
+d55 1
+a55 1
+/*
+d60 1
+a60 2
+		mulSparseDoubleMatrix(yRefine,p,y);
+		mulSparseDoubleMatrix(yRefine,yRefine,pTrans);
+d67 3
+a69 2
+*/
+		const int goalPartition = 4;
+d80 1
+d82 1
+d84 15
+a98 8
+	SparseDoubleMatrix *aRecover = createSparseDoubleMatrix(yRefine->totalRow,yRefine->totalCol);
+	mulSparseDoubleMatrix(aRecover,l,u);
+	subSparseDoubleMatrix(aRecover,yRefine,aRecover);
+	dumpSparseDoubleMatrix(stdout,aRecover);
+*/
+//	dumpSparseDoubleMatrix(stdout,l);
+//	dumpSparseDoubleMatrix(stdout,u);
+//	exit(0);
+@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@d39 1
+d41 1
+a41 17
+		ParallelETree *tree2 = createParallelETree(goalPartition*2 + goalPartition+1);
+		roughPartition(tree2,p,y,goalPartition);
+		transSparseDoubleMatrix(pTrans,p);
+		fprintf(stderr,"trans done\n");
+		mulSparseDoubleMatrix(yRefine,p,y);
+		fprintf(stderr,"renaming row done\n");
+		mulSparseDoubleMatrix(yRefine,yRefine,pTrans);
+		fprintf(stderr,"renaming col done\n");
+		
+		SparseDoubleMatrix *pRefine = createSparseDoubleMatrix(nodeNum,nodeNum);
+		refinePartition(pRefine,tree2,yRefine);
+		mulSparseDoubleMatrix(p,pRefine,p);
+		transSparseDoubleMatrix(pTrans,p);
+		mulSparseDoubleMatrix(yRefine,p,y);
+		mulSparseDoubleMatrix(yRefine,yRefine,pTrans);
+		freeSparseDoubleMatrix(pRefine);
+	
+d52 2
+a54 1
+		// directly partition
+a55 9
+/*		
+		// ===============================
+		// roughly partition
+		// ===============================
+		const int goalPartition = 4;
+		ParallelETree *tree2 = createParallelETree(goalPartition*2 + goalPartition+1);
+		roughPartition(tree2,p,y,goalPartition);
+		// ===============================
+*/
+a58 14
+/*
+		// refined partition
+		SparseDoubleMatrix *pRefine = createSparseDoubleMatrix(nodeNum,nodeNum);
+		refinePartition(pRefine,tree2,yRefine);
+		mulSparseDoubleMatrix(p,pRefine,p);
+		transSparseDoubleMatrix(pTrans,p);
+		mulSparseDoubleMatrix(yRefine,p,y);
+		mulSparseDoubleMatrix(yRefine,yRefine,pTrans);
+		freeSparseDoubleMatrix(pRefine);
+		
+		// free the memory for partition
+		freeParallelETree(tree2);
+*/	
+
+d65 12
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d60 1
+a60 1
+		testParallelLU(l,u,tree2,yRefine,goalPartition);	
+@
